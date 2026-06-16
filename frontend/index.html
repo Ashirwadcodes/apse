@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="APCTT Technology Gateway prototype for federated technology discovery across Asia and the Pacific."
+    />
+    <title>APCTT Technology Gateway</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="prototype-preview">
+    <!-- Embed this main element inside the existing Drupal page layout. -->
+    <main class="apctt-gateway">
+      <nav class="gateway-nav" aria-label="Technology Gateway sections">
+        <div class="gateway-container gateway-nav-inner">
+          <a class="gateway-nav-brand" href="#gateway-home">
+            <strong>Technology Gateway</strong>
+            <span>Federated technology discovery</span>
+          </a>
+          <div class="gateway-nav-links">
+            <a class="active" href="#search-results">
+              <span class="nav-number">01</span>
+              <span class="nav-label-full">Search technologies</span>
+              <span class="nav-label-short">Search</span>
+            </a>
+            <a href="#sources">
+              <span class="nav-number">02</span>
+              <span class="nav-label-full">Technology sources</span>
+              <span class="nav-label-short">Sources</span>
+            </a>
+            <a href="#about">
+              <span class="nav-number">03</span>
+              <span class="nav-label-full">About the Gateway</span>
+              <span class="nav-label-short">About</span>
+            </a>
+          </div>
+        </div>
+      </nav>
+
+      <section class="hero" id="gateway-home">
+        <div class="hero-pattern" aria-hidden="true"></div>
+        <div class="gateway-container hero-content">
+          <div class="eyebrow"><span></span> APCTT Technology Gateway</div>
+          <h1>Discover technology offers across <em>Asia and the Pacific</em></h1>
+          <p>
+            Search across participating technology banks and access original source platforms.
+          </p>
+
+          <form class="search-form" id="search-form" role="search">
+            <label class="visually-hidden" for="search-input">Search technologies</label>
+            <span class="search-icon" aria-hidden="true"></span>
+            <input
+              id="search-input"
+              type="search"
+              placeholder="Search technologies, sectors, or keywords..."
+              autocomplete="off"
+            />
+            <button class="button button-primary search-button" type="submit">
+              <span>Search technologies</span>
+              <svg viewBox="0 0 20 20" aria-hidden="true">
+                <path d="m7.5 4.5 5 5-5 5" />
+              </svg>
+            </button>
+          </form>
+
+          <div class="popular-searches">
+            <span>Popular searches</span>
+            <div class="chip-list" id="popular-chips">
+              <button type="button" data-keyword="기후변화">Climate resilience</button>
+              <button type="button" data-keyword="재생에너지">Renewable energy</button>
+              <button type="button" data-keyword="인공지능">AI</button>
+              <button type="button" data-keyword="농업">Agriculture</button>
+              <button type="button" data-keyword="수자원">Water</button>
+              <button type="button" data-keyword="의료기술">Health technology</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="search-section" id="search-results">
+        <div class="gateway-container">
+          <div class="section-heading results-heading">
+            <div>
+              <span class="section-kicker">Federated results</span>
+              <h2 id="results-title">Technology search results</h2>
+              <p id="results-summary">Explore technology offers from participating source platforms.</p>
+            </div>
+            <button class="text-button" id="clear-filters" type="button">
+              Clear all filters
+              <svg viewBox="0 0 18 18" aria-hidden="true"><path d="M4 4l10 10M14 4 4 14" /></svg>
+            </button>
+          </div>
+
+          <div class="search-layout">
+            <aside class="filters" aria-label="Search filters">
+              <div class="filters-header">
+                <div>
+                  <span class="filter-icon" aria-hidden="true"></span>
+                  <h3>Filter results</h3>
+                </div>
+                <button class="filter-close" type="button" aria-label="Close filters">×</button>
+              </div>
+
+              <div class="filter-group">
+                <label for="country-filter">Country</label>
+                <select id="country-filter">
+                  <option value="">All countries</option>
+                </select>
+              </div>
+              <div class="filter-group">
+                <label for="sector-filter">Sector</label>
+                <select id="sector-filter">
+                  <option value="">All sectors</option>
+                </select>
+              </div>
+              <div class="filter-group">
+                <label for="source-filter">Source platform</label>
+                <select id="source-filter">
+                  <option value="">All platforms</option>
+                </select>
+              </div>
+              <div class="filter-group">
+                <label for="language-filter">Language</label>
+                <select id="language-filter">
+                  <option value="">All languages</option>
+                </select>
+              </div>
+
+              <div class="filter-note">
+                <svg viewBox="0 0 20 20" aria-hidden="true">
+                  <circle cx="10" cy="10" r="8" /><path d="M10 9v5M10 6.2v.2" />
+                </svg>
+                <p>Results are grouped by their original source database.</p>
+              </div>
+            </aside>
+
+            <div class="results-column">
+              <button class="mobile-filter-button button button-secondary" type="button">
+                <span class="filter-icon" aria-hidden="true"></span> Filters
+              </button>
+              <div id="results-container" aria-live="polite"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="sources-section" id="sources">
+        <div class="gateway-container">
+          <div class="section-heading">
+            <div>
+              <span class="section-kicker">Partner network</span>
+              <h2>Participating sources</h2>
+              <p>Technology databases currently represented in the search hub.</p>
+            </div>
+            <div class="source-count"><strong>5</strong><span>source platforms</span></div>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Platform name</th>
+                  <th>Country</th>
+                  <th>Managing institution</th>
+                  <th>Integration status</th>
+                  <th><span class="visually-hidden">Platform link</span></th>
+                </tr>
+              </thead>
+              <tbody id="sources-table"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="about-section" id="about">
+        <div class="gateway-container about-grid">
+          <div>
+            <span class="section-kicker light">About the hub</span>
+            <h2>Connecting technology seekers with solutions across the region.</h2>
+          </div>
+          <div>
+            <p>
+              The APCTT Technology Gateway is a prototype federated search service designed
+              to improve access to technology offers maintained by national and institutional
+              partners across Asia and the Pacific.
+            </p>
+            <a href="#search-results">Explore available technologies <span>→</span></a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="app.js" defer></script>
+  </body>
+</html>
