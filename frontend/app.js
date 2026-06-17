@@ -1,4 +1,4 @@
-const API_BASE = "http://localhost:8000/api/v1";
+const API_BASE = "https://apctt-gateaway.onrender.com/api/v1";
 
 // Runtime state — sources populated on init, technologies fetched on each search
 let sourcesCache = [];
