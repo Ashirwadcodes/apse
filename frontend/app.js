@@ -1,4 +1,4 @@
-const API_BASE = "https://apse-api.onrender.com/api/v1";
+const API_BASE = "https://apsei-api.onrender.com/api/v1";
 
 // Runtime state — sources populated on init, technologies fetched on each search
 let sourcesCache = [];
