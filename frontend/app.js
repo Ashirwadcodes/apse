@@ -157,6 +157,17 @@ async function translateCard(btn, techId) {
   }
 }
 
+function buildRedirectUrl(source, query) {
+  const q = encodeURIComponent(query || "");
+  if (source.id === "wipo_patentscope" && q) {
+    return `https://patentscope.wipo.int/search/en/search.jsf?query=${q}`;
+  }
+  if (source.id === "india_tifac" && q) {
+    return `https://tifac.org.in/techmonitor?search=${q}`;
+  }
+  return source.url;
+}
+
 function sourceGroup(source, results) {
   const isMetadata = source.status === "Metadata search";
   const countLabel = `${results.length} result${results.length === 1 ? "" : "s"}`;
@@ -165,11 +176,11 @@ function sourceGroup(source, results) {
     : `
       <div class="redirect-card">
         <div>
-          <h4>Continue your search on ${source.name}</h4>
-          <p>Direct metadata is not yet available for this source.</p>
+          <h4>Search ${source.name} directly</h4>
+          <p>This source does not yet provide inline metadata. Click below to run your search on their platform.</p>
         </div>
-        <a class="button button-secondary" href="${source.url}" target="_blank" rel="noopener noreferrer">
-          Search this platform externally&nbsp; →
+        <a class="button button-secondary" href="${buildRedirectUrl(source, state.query)}" target="_blank" rel="noopener noreferrer">
+          Search on ${source.name}&nbsp; →
         </a>
       </div>
     `;
