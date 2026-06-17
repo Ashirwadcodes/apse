@@ -32,12 +32,14 @@ async def search(
                        "source": source, "language": language})
     cached = cache.get(key)
     if cached is not None:
+        results, source_totals = cached
         return SearchResponse(
             query=query,
-            total=len(cached),
-            sources_hit=len({r.source_id for r in cached}),
-            results=cached,
+            total=len(results),
+            sources_hit=len({r.source_id for r in results}),
+            results=results,
             cached=True,
+            source_totals=source_totals,
         )
 
     active_sources = SOURCES
@@ -48,17 +50,23 @@ async def search(
 
     async def safe_search(src):
         try:
-            return await src.search(query, filters)
+            return src.id, await src.search(query, filters)
         except Exception:
-            return []
+            return src.id, ([], 0)
 
-    results_nested = await asyncio.gather(*[safe_search(s) for s in active_sources])
-    results = [tech for batch in results_nested for tech in batch]
+    raw = await asyncio.gather(*[safe_search(s) for s in active_sources])
+
+    results = []
+    source_totals = {}
+    for src_id, (items, total_count) in raw:
+        results.extend(items)
+        if total_count > 0:
+            source_totals[src_id] = total_count
 
     if language:
         results = [r for r in results if r.language.lower() == language.lower()]
 
-    cache.set(key, results, ttl=settings.CACHE_TTL_SECONDS)
+    cache.set(key, (results, source_totals), ttl=settings.CACHE_TTL_SECONDS)
 
     return SearchResponse(
         query=query,
@@ -66,4 +74,5 @@ async def search(
         sources_hit=len({r.source_id for r in results}),
         results=results,
         cached=False,
+        source_totals=source_totals,
     )

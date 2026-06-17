@@ -12,7 +12,7 @@ class BaseSource(ABC):
     ttl_seconds: int = 86400
 
     @abstractmethod
-    async def search(self, query: str, filters: dict) -> list[Technology]:
+    async def search(self, query: str, filters: dict) -> tuple[list[Technology], int]:
         ...
 
     @abstractmethod

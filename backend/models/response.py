@@ -8,3 +8,4 @@ class SearchResponse(BaseModel):
     sources_hit: int
     results: list[Technology]
     cached: bool
+    source_totals: dict[str, int] = {}

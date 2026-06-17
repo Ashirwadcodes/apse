@@ -49,7 +49,7 @@ class KoreaNTBSource(BaseSource):
             sub_sector=f("tcateNamem"),
         )
 
-    async def search(self, query: str, filters: dict) -> list[Technology]:
+    async def search(self, query: str, filters: dict) -> tuple[list[Technology], int]:
         params: dict = {
             "serviceKey": unquote(settings.KOREA_NTB_API_KEY),
             "numOfRows": "20",
@@ -65,17 +65,19 @@ class KoreaNTBSource(BaseSource):
                 r = await client.get(settings.KOREA_NTB_BASE_URL, params=params)
                 r.raise_for_status()
         except Exception:
-            return []
+            return [], 0
 
         try:
             root = ET.fromstring(r.text)
         except ET.ParseError:
-            return []
+            return [], 0
 
         if (root.findtext(".//resultCode") or "") != "00":
-            return []
+            return [], 0
 
-        return [self._normalize(item) for item in root.findall(".//item")]
+        total_count = int(root.findtext(".//totalCount") or "0")
+        items = [self._normalize(item) for item in root.findall(".//item")]
+        return items, total_count
 
     def is_healthy(self) -> bool:
         return True

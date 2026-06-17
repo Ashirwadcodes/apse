@@ -168,9 +168,12 @@ function buildRedirectUrl(source, query) {
   return source.url;
 }
 
-function sourceGroup(source, results) {
+function sourceGroup(source, results, totalCount) {
   const isMetadata = source.status === "Metadata search";
-  const countLabel = `${results.length} result${results.length === 1 ? "" : "s"}`;
+  const fetchedLabel = `${results.length} result${results.length === 1 ? "" : "s"}`;
+  const countLabel = totalCount && totalCount > results.length
+    ? `${results.length} of ${totalCount.toLocaleString()}`
+    : fetchedLabel;
   const content = isMetadata
     ? `<div class="technology-list">${results.map((item) => technologyCard(item, source)).join("")}</div>`
     : `
@@ -244,7 +247,7 @@ async function renderResults() {
     return;
   }
 
-  const { results, total, sources_hit } = data;
+  const { results, total, sources_hit, source_totals = {} } = data;
 
   els.summary.textContent =
     `${total} technolog${total === 1 ? "y" : "ies"} across ` +
@@ -288,7 +291,7 @@ async function renderResults() {
         status: "Metadata search",
         url: "#",
       };
-      return sourceGroup(source, techs);
+      return sourceGroup(source, techs, source_totals[sourceId]);
     })
     .join("");
 }
