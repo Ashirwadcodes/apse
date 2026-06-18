@@ -6,6 +6,8 @@ class Settings(BaseSettings):
     KOREA_NTB_BASE_URL: str
     KOREA_NTB_TTL_SECONDS: int = 86400
     CACHE_TTL_SECONDS: int = 86400
+    IP_AUSTRALIA_CLIENT_ID: str = ""
+    IP_AUSTRALIA_CLIENT_SECRET: str = ""
 
     model_config = {"env_file": ".env"}
 
