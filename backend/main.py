@@ -30,28 +30,19 @@ def health():
 
 @app.get("/debug/ip-australia")
 async def debug_ip_australia():
-    import httpx, traceback
-    result = {"client_id_set": bool(settings.IP_AUSTRALIA_CLIENT_ID), "steps": []}
+    import traceback
+    from backend.sources.registry import SOURCE_MAP
+    result = {"client_id_set": bool(settings.IP_AUSTRALIA_CLIENT_ID)}
     try:
-        async with httpx.AsyncClient(timeout=15) as client:
-            r = await client.post(
-                "https://test.api.ipaustralia.gov.au/public/external-token-api/v1/access_token",
-                data={"grant_type": "client_credentials"},
-                auth=(settings.IP_AUSTRALIA_CLIENT_ID, settings.IP_AUSTRALIA_CLIENT_SECRET),
-            )
-        result["token_status"] = r.status_code
-        result["token_body"] = r.text[:300]
-        if r.status_code == 200:
-            token = r.json()["access_token"]
-            result["steps"].append("token_ok")
-            async with httpx.AsyncClient(timeout=15) as client:
-                r2 = await client.post(
-                    "https://test.api.ipaustralia.gov.au/public/australian-patent-search-api/v1/search/quick",
-                    json={"query": "solar", "searchType": "DETAILS", "pageSize": 3, "pageNumber": 0},
-                    headers={"Authorization": f"Bearer {token}"},
-                )
-            result["search_status"] = r2.status_code
-            result["search_body"] = r2.text[:500]
+        src = SOURCE_MAP.get("ip_australia")
+        if not src:
+            result["error"] = "ip_australia not in SOURCE_MAP"
+            return result
+        result["source_found"] = True
+        items, total = await src.search("solar", {})
+        result["items_returned"] = len(items)
+        result["total"] = total
+        result["first_title"] = items[0].title if items else None
     except Exception:
         result["error"] = traceback.format_exc()
     return result
