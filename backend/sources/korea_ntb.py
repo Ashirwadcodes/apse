@@ -81,10 +81,11 @@ class KoreaNTBSource(BaseSource):
         # Translate English queries to Korean so NTB returns relevant results
         ntb_query = await _translate_to_korean(query) if query else ""
 
+        page = int(filters.get("page", 1))
         params: dict = {
             "serviceKey": unquote(settings.KOREA_NTB_API_KEY),
             "numOfRows": "20",
-            "pageNo": "1",
+            "pageNo": str(page),
         }
         if ntb_query:
             params["techName"] = ntb_query

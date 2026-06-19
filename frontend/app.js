@@ -9,6 +9,7 @@ const state = {
   sector: "",
   source: "",
   language: "",
+  pages: {},   // { source_id: currentPage }
 };
 
 const els = {
@@ -203,8 +204,11 @@ function sourceGroup(source, results, totalCount) {
           </article>`).join("") : ""}
       </div>`;
 
+  const currentPage = state.pages[source.id] || 1;
+  const hasMore = isMetadata && totalCount && (currentPage * 20) < totalCount;
+
   return `
-    <section class="source-group">
+    <section class="source-group" data-source-id="${source.id}">
       <header class="group-header">
         <div class="group-source">
           <span class="source-initial" aria-hidden="true">${sourceInitials(source.name)}</span>
@@ -219,6 +223,14 @@ function sourceGroup(source, results, totalCount) {
         </div>
       </header>
       ${content}
+      ${hasMore ? `
+        <div class="load-more-wrap">
+          <button class="button button-secondary load-more-btn"
+            onclick="loadMore('${source.id}')">
+            Load more results
+            <span class="load-more-hint">${currentPage * 20} of ${totalCount.toLocaleString()}</span>
+          </button>
+        </div>` : ""}
     </section>
   `;
 }
@@ -231,13 +243,14 @@ async function fetchSources() {
   return res.json();
 }
 
-async function fetchResults() {
+async function fetchResults(page = 1) {
   const params = new URLSearchParams();
   if (state.query)    params.set("q", state.query);
   if (state.country)  params.set("country", state.country);
   if (state.sector)   params.set("sector", state.sector);
   if (state.source)   params.set("source", state.source);
   if (state.language) params.set("language", state.language);
+  if (page > 1)       params.set("page", page);
   const res = await fetch(`${API_BASE}/search?${params}`);
   if (!res.ok) throw new Error(`Search failed: ${res.status}`);
   return res.json();
@@ -416,8 +429,49 @@ async function renderSourcesTable() {
 
 // ── Event listeners (unchanged) ───────────────────────────────────────────────
 
+async function loadMore(sourceId) {
+  const btn = document.querySelector(`[data-source-id="${sourceId}"] .load-more-btn`);
+  if (btn) { btn.textContent = "Loading…"; btn.disabled = true; }
+
+  state.pages[sourceId] = (state.pages[sourceId] || 1) + 1;
+  const nextPage = state.pages[sourceId];
+
+  try {
+    const data = await fetchResults(nextPage);
+    const { results, source_totals = {} } = data;
+    const sourceMap = Object.fromEntries(sourcesCache.map((s) => [s.id, s]));
+    const newItems = results.filter((r) => r.source_id === sourceId);
+
+    if (newItems.length) {
+      const source = sourceMap[sourceId];
+      const list = document.querySelector(`[data-source-id="${sourceId}"] .technology-list`);
+      list.insertAdjacentHTML("beforeend", newItems.map((t) => technologyCard(t, source)).join(""));
+      autoTranslateKoreanCards();
+    }
+
+    // Update load-more button
+    const wrap = document.querySelector(`[data-source-id="${sourceId}"] .load-more-wrap`);
+    const total = source_totals[sourceId];
+    const fetched = nextPage * 20;
+    if (wrap) {
+      if (total && fetched < total) {
+        wrap.querySelector(".load-more-btn").disabled = false;
+        wrap.querySelector(".load-more-btn").innerHTML =
+          `Load more results <span class="load-more-hint">${fetched} of ${total.toLocaleString()}</span>`;
+      } else {
+        wrap.remove();
+      }
+    }
+  } catch {
+    if (btn) { btn.textContent = "Failed — retry"; btn.disabled = false; }
+  }
+}
+
+window.loadMore = loadMore;
+
 function runSearch(query) {
   state.query = query.trim();
+  state.pages = {};  // reset pagination on new search
   els.input.value = state.query;
   renderResults();
   document.querySelector("#search-results").scrollIntoView({ behavior: "smooth" });
@@ -441,6 +495,7 @@ document.querySelector("#popular-chips").addEventListener("click", (event) => {
 ].forEach(([select, key]) => {
   select.addEventListener("change", () => {
     state[key] = select.value;
+    state.pages = {};
     renderResults();
   });
 });

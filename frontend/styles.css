@@ -1124,6 +1124,29 @@
   cursor: pointer;
 }
 
+/* ── Load more ───────────────────────────────────────────────────────────────── */
+
+.load-more-wrap {
+  display: flex;
+  justify-content: center;
+  padding: 20px 24px;
+  border-top: 1px solid var(--line);
+}
+
+.load-more-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  cursor: pointer;
+}
+
+.load-more-hint {
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--muted);
+}
+
 /* ── Source detail page overlay ─────────────────────────────────────────────── */
 
 .source-page {

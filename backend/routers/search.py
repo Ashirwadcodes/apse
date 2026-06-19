@@ -24,12 +24,13 @@ async def search(
     sector: Optional[str] = None,
     source: Optional[str] = None,
     language: Optional[str] = None,
+    page: int = 1,
 ):
     query = q or ""
-    filters = {k: v for k, v in {"country": country, "sector": sector}.items() if v}
+    filters = {k: v for k, v in {"country": country, "sector": sector, "page": page}.items() if v}
 
     key = _cache_key({"q": query, "country": country, "sector": sector,
-                       "source": source, "language": language})
+                       "source": source, "language": language, "page": page})
     cached = cache.get(key)
     if cached is not None:
         results, source_totals = cached

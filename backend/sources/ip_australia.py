@@ -63,12 +63,13 @@ class IPAustraliaSource(BaseSource):
             logger.error("IPAustralia: token fetch failed — %s", e)
             return [], 0
 
+        page = int(filters.get("page", 1))
         payload = {
             "query": query,
             "searchType": "DETAILS",
             "searchMode": "QUICK_NO_ABSTRACT",
             "pageSize": 20,
-            "pageNumber": 0,
+            "pageNumber": page - 1,
             "sort": {"field": "FILING_DATE", "direction": "DESC"},
         }
 
