@@ -73,8 +73,10 @@ function technologyCard(technology, source) {
       </div>`)
     .join("");
 
+  const needsTranslation = technology.language === "Korean";
+
   return `
-    <article class="technology-card" data-tech-id="${technology.id}">
+    <article class="technology-card" data-tech-id="${technology.id}" data-needs-translation="${needsTranslation}">
       <span class="card-sector">${technology.sector}</span>
       <h4 class="card-title">${technology.title}</h4>
       <p class="card-summary">${technology.summary || "No summary available."}</p>
@@ -91,9 +93,6 @@ function technologyCard(technology, source) {
         ${detailRows}
       </div>
       <div class="card-actions">
-        <button class="card-translate-btn" onclick="translateCard(this, '${technology.id}')">
-          Translate to English
-        </button>
         <button class="card-details-btn" onclick="toggleDetails(this, '${technology.id}')">
           Full record ↓
         </button>
@@ -124,36 +123,23 @@ async function translateText(text) {
   return data.responseData?.translatedText || text;
 }
 
-async function translateCard(btn, techId) {
-  const card = document.querySelector(`[data-tech-id="${techId}"]`);
-  const titleEl = card.querySelector(".card-title");
-  const summaryEl = card.querySelector(".card-summary");
-  const tags = card.querySelectorAll(".keyword-tag");
-
-  btn.textContent = "Translating…";
-  btn.disabled = true;
-
-  try {
-    const [translatedTitle, translatedSummary] = await Promise.all([
-      translateText(titleEl.textContent),
-      translateText(summaryEl.textContent),
-    ]);
-    titleEl.textContent = translatedTitle;
-    summaryEl.textContent = translatedSummary;
-
-    // Translate keyword tags and detail values individually
-    for (const tag of tags) {
-      translateText(tag.textContent).then((t) => { tag.textContent = t; });
-    }
-    card.querySelectorAll(".detail-translatable").forEach((el) => {
-      translateText(el.textContent).then((t) => { el.textContent = t; });
-    });
-
-    btn.textContent = "✓ Translated";
-    card.classList.add("translated");
-  } catch {
-    btn.textContent = "Translation failed — retry";
-    btn.disabled = false;
+// Auto-translate all Korean cards after render (staggered to avoid rate limits)
+async function autoTranslateKoreanCards() {
+  const cards = document.querySelectorAll('[data-needs-translation="true"]:not(.translated)');
+  for (const card of cards) {
+    const titleEl = card.querySelector(".card-title");
+    const summaryEl = card.querySelector(".card-summary");
+    try {
+      const [t, s] = await Promise.all([
+        translateText(titleEl.textContent),
+        translateText(summaryEl.textContent),
+      ]);
+      titleEl.textContent = t;
+      summaryEl.textContent = s;
+      card.classList.add("translated");
+      card.querySelector(".card-details span:nth-child(2)").textContent = "Korean → EN";
+    } catch { /* silent — keep original text */ }
+    await new Promise(r => setTimeout(r, 120)); // stagger to stay within rate limit
   }
 }
 
@@ -323,6 +309,9 @@ async function renderResults() {
       return sourceGroup(source, techs, source_totals[sourceId]);
     })
     .join("");
+
+  // Auto-translate Korean cards after render
+  autoTranslateKoreanCards();
 }
 
 // Rich detail info per source — shown on the source cards page
@@ -395,8 +384,8 @@ function sourceDetailCard(source) {
 
       <div class="sdc-actions">
         <button class="button button-primary sdc-search-btn"
-          onclick="runSearch(''); document.querySelector('#search-results').scrollIntoView({behavior:'smooth'}); document.querySelector('#source-filter').value='${source.id}'; state.source='${source.id}'; renderResults();">
-          Search this source
+          onclick="openSourcePage('${source.id}')">
+          View details
         </button>
         <a class="button button-secondary" href="${source.url}" target="_blank" rel="noopener noreferrer">
           Visit source ↗
@@ -473,6 +462,73 @@ document.querySelector(".filter-close").addEventListener("click", () => {
   els.filters.classList.remove("open");
 });
 
+// ── Source detail page (hash routing) ────────────────────────────────────────
+
+const sourcePage = document.querySelector("#source-page");
+const sourcePageContent = document.querySelector("#source-page-content");
+
+function openSourcePage(sourceId) {
+  const source = sourcesCache.find((s) => s.id === sourceId);
+  if (!source) return;
+  const detail = SOURCE_DETAIL[sourceId] || {};
+  sourcePageContent.innerHTML = `
+    <div class="sp-back">
+      <button class="text-button" onclick="closeSourcePage()">← Back to Gateway</button>
+    </div>
+    <div class="sp-hero">
+      <span class="source-initial sp-initial" aria-hidden="true">${sourceInitials(source.name)}</span>
+      <div>
+        <span class="status ${statusClass(source.status)}">${source.status}</span>
+        <h2 class="sp-name">${source.name}</h2>
+        <p class="sp-country">${detail.flag || ""} ${source.country} · ${source.institution}</p>
+      </div>
+    </div>
+    ${detail.size ? `<div class="sp-stat-row">
+      <div class="sp-stat"><span class="sdc-stat-number">${detail.size}</span><span class="sdc-stat-label">${detail.sizeLabel}</span></div>
+    </div>` : ""}
+    <p class="sp-desc">${detail.description || ""}</p>
+    <div class="sp-section">
+      <h3>Coverage</h3>
+      <p>${detail.coverage || source.country}</p>
+    </div>
+    ${detail.searchHint ? `<div class="sp-section sp-hint-box">
+      <h3>Search tip</h3>
+      <p>${detail.searchHint}</p>
+    </div>` : ""}
+    <div class="sp-actions">
+      <button class="button button-primary" onclick="closeSourcePage(); state.source='${source.id}'; document.querySelector('#source-filter').value='${source.id}'; runSearch(state.query || ''); ">
+        Search ${source.name}
+      </button>
+      <a class="button button-secondary" href="${source.url}" target="_blank" rel="noopener noreferrer">
+        Visit official site ↗
+      </a>
+    </div>
+  `;
+  sourcePage.classList.add("open");
+  history.pushState({ sourceId }, "", `#source/${sourceId}`);
+}
+
+function closeSourcePage() {
+  sourcePage.classList.remove("open");
+  history.pushState({}, "", "#sources");
+}
+
+window.openSourcePage = openSourcePage;
+window.closeSourcePage = closeSourcePage;
+
+window.addEventListener("popstate", (e) => {
+  if (e.state?.sourceId) {
+    openSourcePage(e.state.sourceId);
+  } else {
+    sourcePage.classList.remove("open");
+  }
+});
+
 // ── Boot ─────────────────────────────────────────────────────────────────────
 
-renderSourcesTable().then(() => renderResults());
+renderSourcesTable().then(() => {
+  renderResults();
+  // Check if URL has a source hash on load
+  const match = location.hash.match(/^#source\/(.+)$/);
+  if (match) openSourcePage(match[1]);
+});
