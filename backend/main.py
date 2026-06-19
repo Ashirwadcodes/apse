@@ -28,21 +28,3 @@ def health():
     return {"status": "ok"}
 
 
-@app.get("/debug/ip-australia")
-async def debug_ip_australia():
-    import traceback
-    from backend.sources.registry import SOURCE_MAP
-    result = {"client_id_set": bool(settings.IP_AUSTRALIA_CLIENT_ID)}
-    try:
-        src = SOURCE_MAP.get("ip_australia")
-        if not src:
-            result["error"] = "ip_australia not in SOURCE_MAP"
-            return result
-        result["source_found"] = True
-        items, total = await src.search("solar", {})
-        result["items_returned"] = len(items)
-        result["total"] = total
-        result["first_title"] = items[0].title if items else None
-    except Exception:
-        result["error"] = traceback.format_exc()
-    return result

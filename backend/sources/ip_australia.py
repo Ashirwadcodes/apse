@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import time
+from datetime import datetime
 import httpx
 from backend.sources.base import BaseSource
 from backend.models.technology import Technology
@@ -115,6 +116,7 @@ class IPAustraliaSource(BaseSource):
             keywords=[],
             sub_sector="",
             url=f"https://pericles.ipaustralia.gov.au/ols/auspat/applicationDetails.do?applicationNo={app_num}",
+            fetched_at=datetime.utcnow(),
         )
 
     def is_healthy(self) -> bool:
