@@ -15,8 +15,8 @@ class IPAustraliaSource(BaseSource):
     url = "https://www.ipaustralia.gov.au/patents"
     ttl_seconds = 86400
 
-    _BASE = "https://production.api.ipaustralia.gov.au/public/australian-patent-search-api/v1"
-    _TOKEN_URL = "https://production.api.ipaustralia.gov.au/public/external-token-api/v1/access_token"
+    _BASE = "https://test.api.ipaustralia.gov.au/public/australian-patent-search-api/v1"
+    _TOKEN_URL = "https://test.api.ipaustralia.gov.au/public/external-token-api/v1/access_token"
 
     def __init__(self):
         self._token: str | None = None
@@ -35,11 +35,8 @@ class IPAustraliaSource(BaseSource):
 
             r = httpx.post(
                 self._TOKEN_URL,
-                data={
-                    "grant_type": "client_credentials",
-                    "client_id": client_id,
-                    "client_secret": client_secret,
-                },
+                data={"grant_type": "client_credentials"},
+                auth=(client_id, client_secret),
                 timeout=15,
             )
             r.raise_for_status()
