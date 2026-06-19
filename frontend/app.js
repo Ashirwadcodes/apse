@@ -22,7 +22,6 @@ const els = {
   source: document.querySelector("#source-filter"),
   language: document.querySelector("#language-filter"),
   clear: document.querySelector("#clear-filters"),
-  sourceTable: document.querySelector("#sources-table"),
   filters: document.querySelector(".filters"),
 };
 
@@ -326,7 +325,90 @@ async function renderResults() {
     .join("");
 }
 
+// Rich detail info per source — shown on the source cards page
+const SOURCE_DETAIL = {
+  korea_ntb: {
+    flag: "🇰🇷",
+    size: "128,000+",
+    sizeLabel: "technologies",
+    description: "Korea's national repository for technology transfer offers from universities, research institutes, and public R&D institutions. Technologies span manufacturing, ICT, biotech, energy, and more.",
+    coverage: "Republic of Korea — domestic technologies available for licensing, joint development, or transfer to domestic and international partners.",
+    searchHint: "Search in English — queries are automatically translated to Korean.",
+  },
+  wipo_patentscope: {
+    flag: "🌏",
+    size: "128M+",
+    sizeLabel: "patents",
+    description: "WIPO PATENTSCOPE provides access to international patent applications filed via the PCT system, as well as national patent collections from 50+ offices.",
+    coverage: "Global — includes Asia-Pacific offices: JP, KR, CN, IN, AU, SG, TH, VN, PH, MY, ID, NZ and 140+ other countries.",
+    searchHint: "Clicking 'Search on WIPO' will open PATENTSCOPE with your query pre-filled.",
+  },
+  ip_australia: {
+    flag: "🇦🇺",
+    size: "6,000+",
+    sizeLabel: "patents (test DB)",
+    description: "Australian patent applications and grants searched via the IP Australia Patent Search API. Covers innovation patents, standard patents, and PCT national phase entries.",
+    coverage: "Australia — all patent applications lodged with IP Australia, including PCT applications entering the national phase.",
+    searchHint: "Results link directly to the Australian Patent Search portal for full specifications.",
+  },
+};
+
+function sourceDetailCard(source) {
+  const detail = SOURCE_DETAIL[source.id] || {};
+  const initials = sourceInitials(source.name);
+  return `
+    <article class="source-detail-card" id="source-${source.id}">
+      <div class="sdc-header">
+        <div class="sdc-identity">
+          <span class="source-initial sdc-initial" aria-hidden="true">${initials}</span>
+          <div>
+            <h3 class="sdc-name">${source.name}</h3>
+            <p class="sdc-country">${detail.flag || ""} ${source.country}</p>
+          </div>
+        </div>
+        <span class="status ${statusClass(source.status)}">${source.status}</span>
+      </div>
+
+      ${detail.size ? `
+      <div class="sdc-stat">
+        <span class="sdc-stat-number">${detail.size}</span>
+        <span class="sdc-stat-label">${detail.sizeLabel}</span>
+      </div>` : ""}
+
+      <p class="sdc-description">${detail.description || ""}</p>
+
+      <div class="sdc-meta">
+        <div class="sdc-meta-row">
+          <span class="sdc-meta-label">Institution</span>
+          <span class="sdc-meta-value">${source.institution}</span>
+        </div>
+        <div class="sdc-meta-row">
+          <span class="sdc-meta-label">Coverage</span>
+          <span class="sdc-meta-value">${detail.coverage || source.country}</span>
+        </div>
+        ${detail.searchHint ? `
+        <div class="sdc-meta-row">
+          <span class="sdc-meta-label">Search tip</span>
+          <span class="sdc-meta-value sdc-hint">${detail.searchHint}</span>
+        </div>` : ""}
+      </div>
+
+      <div class="sdc-actions">
+        <button class="button button-primary sdc-search-btn"
+          onclick="runSearch(''); document.querySelector('#search-results').scrollIntoView({behavior:'smooth'}); document.querySelector('#source-filter').value='${source.id}'; state.source='${source.id}'; renderResults();">
+          Search this source
+        </button>
+        <a class="button button-secondary" href="${source.url}" target="_blank" rel="noopener noreferrer">
+          Visit source ↗
+        </a>
+      </div>
+    </article>
+  `;
+}
+
 async function renderSourcesTable() {
+  const grid = document.querySelector("#source-cards-grid");
+  const badge = document.querySelector("#source-count-badge strong");
   try {
     const sources = await fetchSources();
     sourcesCache = sources;
@@ -336,25 +418,10 @@ async function renderSourcesTable() {
     populateSelect(els.country, countries);
     populateSelect(els.source, sources, (s) => s.name);
 
-    els.sourceTable.innerHTML = sources
-      .map(
-        (source) => `
-          <tr>
-            <td>${source.name}</td>
-            <td>${source.country}</td>
-            <td>${source.institution}</td>
-            <td><span class="status ${statusClass(source.status)}">${source.status}</span></td>
-            <td>
-              <a class="table-link" href="${source.url}" target="_blank" rel="noopener noreferrer">
-                Visit source&nbsp; ↗
-              </a>
-            </td>
-          </tr>
-        `
-      )
-      .join("");
+    if (badge) badge.textContent = sources.length;
+    if (grid) grid.innerHTML = sources.map(sourceDetailCard).join("");
   } catch {
-    els.sourceTable.innerHTML = `<tr><td colspan="5">Could not load sources.</td></tr>`;
+    if (grid) grid.innerHTML = `<p>Could not load sources.</p>`;
   }
 }
 

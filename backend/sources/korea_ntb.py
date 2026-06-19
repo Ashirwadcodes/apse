@@ -7,6 +7,34 @@ from backend.sources.base import BaseSource
 from backend.models.technology import Technology
 from backend.config import settings
 
+_KO_CHARS = set("가나다라마바사아자차카타파하")
+
+
+def _is_korean(text: str) -> bool:
+    return any("가" <= ch <= "힣" for ch in text)
+
+
+async def _translate_to_korean(query: str) -> str:
+    if not query or _is_korean(query):
+        return query
+    try:
+        url = (
+            f"https://api.mymemory.translated.net/get"
+            f"?q={httpx.URL('', params={'q': query}).params}&langpair=en|ko"
+        )
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            r = await client.get(
+                "https://api.mymemory.translated.net/get",
+                params={"q": query[:400], "langpair": "en|ko"},
+            )
+        data = r.json()
+        translated = data.get("responseData", {}).get("translatedText", "")
+        if translated and translated.lower() != query.lower():
+            return translated
+    except Exception:
+        pass
+    return query
+
 
 class KoreaNTBSource(BaseSource):
     id = "korea_ntb"
@@ -50,13 +78,16 @@ class KoreaNTBSource(BaseSource):
         )
 
     async def search(self, query: str, filters: dict) -> tuple[list[Technology], int]:
+        # Translate English queries to Korean so NTB returns relevant results
+        ntb_query = await _translate_to_korean(query) if query else ""
+
         params: dict = {
             "serviceKey": unquote(settings.KOREA_NTB_API_KEY),
             "numOfRows": "20",
             "pageNo": "1",
         }
-        if query:
-            params["techName"] = query
+        if ntb_query:
+            params["techName"] = ntb_query
         if filters.get("sector"):
             params["tcateNamep"] = filters["sector"]
 

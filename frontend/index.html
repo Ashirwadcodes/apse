@@ -74,12 +74,12 @@
           <div class="popular-searches">
             <span>Popular searches</span>
             <div class="chip-list" id="popular-chips">
-              <button type="button" data-keyword="기후변화">Climate resilience</button>
-              <button type="button" data-keyword="재생에너지">Renewable energy</button>
-              <button type="button" data-keyword="인공지능">AI</button>
-              <button type="button" data-keyword="농업">Agriculture</button>
-              <button type="button" data-keyword="수자원">Water</button>
-              <button type="button" data-keyword="의료기술">Health technology</button>
+              <button type="button" data-keyword="Climate resilience">Climate resilience</button>
+              <button type="button" data-keyword="Renewable energy">Renewable energy</button>
+              <button type="button" data-keyword="Artificial intelligence">AI</button>
+              <button type="button" data-keyword="Agriculture">Agriculture</button>
+              <button type="button" data-keyword="Water treatment">Water</button>
+              <button type="button" data-keyword="Health technology">Health technology</button>
             </div>
           </div>
         </div>
@@ -172,23 +172,9 @@
               <h2>Participating sources</h2>
               <p>Technology databases currently represented in the search hub.</p>
             </div>
-            <div class="source-count"><strong>5</strong><span>source platforms</span></div>
+            <div class="source-count" id="source-count-badge"><strong>—</strong><span>source platforms</span></div>
           </div>
-
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Platform name</th>
-                  <th>Country</th>
-                  <th>Managing institution</th>
-                  <th>Integration status</th>
-                  <th><span class="visually-hidden">Platform link</span></th>
-                </tr>
-              </thead>
-              <tbody id="sources-table"></tbody>
-            </table>
-          </div>
+          <div id="source-cards-grid" class="source-cards-grid"></div>
         </div>
       </section>
 
