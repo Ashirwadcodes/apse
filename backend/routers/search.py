@@ -51,11 +51,15 @@ async def search(
     if country:
         active_sources = [s for s in active_sources if s.country == country or s.country == "Global"]
 
+    # NTB API (Korean govt) takes 12-18s from Render's US servers — needs extra budget
+    SOURCE_TIMEOUTS = {"korea_ntb": 25.0}
+
     async def safe_search(src):
+        timeout = SOURCE_TIMEOUTS.get(src.id, 10.0)
         try:
-            return src.id, await asyncio.wait_for(src.search(query, filters), timeout=10.0)
+            return src.id, await asyncio.wait_for(src.search(query, filters), timeout=timeout)
         except asyncio.TimeoutError:
-            logger.warning("Source %s timed out after 10s for query=%r", src.id, query)
+            logger.warning("Source %s timed out after %.0fs for query=%r", src.id, timeout, query)
             return src.id, ([], 0)
         except Exception as e:
             logger.error("Source %s failed — %s: %s", src.id, type(e).__name__, e)
