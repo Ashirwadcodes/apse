@@ -8,8 +8,6 @@ from backend.sources.registry import SOURCES, SOURCE_MAP
 from backend.models.response import SearchResponse
 from backend.cache.ttl_cache import cache
 from backend.config import settings
-from backend.sources.korea_ntb import _translate_to_korean
-
 router = APIRouter()
 
 
@@ -29,14 +27,6 @@ async def search(
 ):
     query = q or ""
     filters = {k: v for k, v in {"country": country, "sector": sector, "page": page}.items() if v}
-
-    # Pre-translate before the gather so translation time doesn't eat NTB's per-source timeout
-    ntb_active = not source or source == "korea_ntb"
-    if query and ntb_active:
-        try:
-            filters["ntb_query"] = await asyncio.wait_for(_translate_to_korean(query), timeout=5.0)
-        except Exception:
-            filters["ntb_query"] = query
 
     key = _cache_key({"q": query, "country": country, "sector": sector,
                        "source": source, "language": language, "page": page})

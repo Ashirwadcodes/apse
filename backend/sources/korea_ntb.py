@@ -73,8 +73,7 @@ class KoreaNTBSource(BaseSource):
         )
 
     async def search(self, query: str, filters: dict) -> tuple[list[Technology], int]:
-        # Use pre-translated query from search.py (avoids eating per-source timeout)
-        ntb_query = filters.get("ntb_query") or (await _translate_to_korean(query) if query else "")
+        ntb_query = query
 
         page = int(filters.get("page", 1))
         params: dict = {
