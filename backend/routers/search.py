@@ -1,6 +1,7 @@
 import asyncio
 import hashlib
 import json
+import logging
 from typing import Optional
 
 from fastapi import APIRouter
@@ -8,6 +9,8 @@ from backend.sources.registry import SOURCES, SOURCE_MAP
 from backend.models.response import SearchResponse
 from backend.cache.ttl_cache import cache
 from backend.config import settings
+
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -51,7 +54,11 @@ async def search(
     async def safe_search(src):
         try:
             return src.id, await asyncio.wait_for(src.search(query, filters), timeout=10.0)
-        except Exception:
+        except asyncio.TimeoutError:
+            logger.warning("Source %s timed out after 10s for query=%r", src.id, query)
+            return src.id, ([], 0)
+        except Exception as e:
+            logger.error("Source %s failed — %s: %s", src.id, type(e).__name__, e)
             return src.id, ([], 0)
 
     raw = await asyncio.gather(*[safe_search(s) for s in active_sources])

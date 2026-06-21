@@ -1,4 +1,5 @@
 import httpx
+import logging
 import xml.etree.ElementTree as ET
 from datetime import datetime
 from urllib.parse import unquote
@@ -6,6 +7,8 @@ from urllib.parse import unquote
 from backend.sources.base import BaseSource
 from backend.models.technology import Technology
 from backend.config import settings
+
+logger = logging.getLogger(__name__)
 
 _KO_CHARS = set("가나다라마바사아자차카타파하")
 
@@ -86,19 +89,25 @@ class KoreaNTBSource(BaseSource):
         if filters.get("sector"):
             params["tcateNamep"] = filters["sector"]
 
+        logger.info("NTB: requesting %s params=%s", settings.KOREA_NTB_BASE_URL, {k: v for k, v in params.items() if k != "serviceKey"})
         try:
             async with httpx.AsyncClient(timeout=15.0) as client:
                 r = await client.get(settings.KOREA_NTB_BASE_URL, params=params)
-                r.raise_for_status()
-        except Exception:
+            logger.info("NTB: HTTP %s — body[:200]=%s", r.status_code, r.text[:200])
+            r.raise_for_status()
+        except Exception as e:
+            logger.error("NTB: request failed — %s: %s", type(e).__name__, e)
             return [], 0
 
         try:
             root = ET.fromstring(r.text)
-        except ET.ParseError:
+        except ET.ParseError as e:
+            logger.error("NTB: XML parse error — %s | raw=%s", e, r.text[:300])
             return [], 0
 
-        if (root.findtext(".//resultCode") or "") != "00":
+        result_code = root.findtext(".//resultCode") or ""
+        if result_code != "00":
+            logger.warning("NTB: resultCode=%s msg=%s", result_code, root.findtext(".//resultMsg"))
             return [], 0
 
         total_count = int(root.findtext(".//totalCount") or "0")
