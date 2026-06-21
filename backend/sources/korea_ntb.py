@@ -18,17 +18,12 @@ async def _translate_to_korean(query: str) -> str:
     if not query or _is_korean(query):
         return query
     try:
-        url = (
-            f"https://api.mymemory.translated.net/get"
-            f"?q={httpx.URL('', params={'q': query}).params}&langpair=en|ko"
-        )
-        async with httpx.AsyncClient(timeout=5.0) as client:
+        async with httpx.AsyncClient(timeout=3.0) as client:
             r = await client.get(
                 "https://api.mymemory.translated.net/get",
                 params={"q": query[:400], "langpair": "en|ko"},
             )
-        data = r.json()
-        translated = data.get("responseData", {}).get("translatedText", "")
+        translated = r.json().get("responseData", {}).get("translatedText", "")
         if translated and translated.lower() != query.lower():
             return translated
     except Exception:
@@ -78,8 +73,8 @@ class KoreaNTBSource(BaseSource):
         )
 
     async def search(self, query: str, filters: dict) -> tuple[list[Technology], int]:
-        # Translate English queries to Korean so NTB returns relevant results
-        ntb_query = await _translate_to_korean(query) if query else ""
+        # Use pre-translated query from search.py (avoids eating per-source timeout)
+        ntb_query = filters.get("ntb_query") or (await _translate_to_korean(query) if query else "")
 
         page = int(filters.get("page", 1))
         params: dict = {
