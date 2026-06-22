@@ -1132,27 +1132,38 @@
   font-size: 0.9rem;
 }
 
-/* ── Load more ───────────────────────────────────────────────────────────────── */
+/* ── Pagination ──────────────────────────────────────────────────────────────── */
 
-.load-more-wrap {
+.pagination-bar {
   display: flex;
+  align-items: center;
   justify-content: center;
+  gap: 12px;
   padding: 20px 24px;
   border-top: 1px solid var(--line);
 }
 
-.load-more-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
-  cursor: pointer;
+.pagination-label {
+  font-size: 13px;
+  color: var(--muted);
+  min-width: 120px;
+  text-align: center;
 }
 
-.load-more-hint {
-  font-size: 10px;
-  font-weight: 400;
-  color: var(--muted);
+.pagination-btn {
+  min-width: 80px;
+}
+
+.pagination-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+  pointer-events: none;
+}
+
+.page-loading {
+  opacity: 0.4;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
 }
 
 /* ── Source detail page overlay ─────────────────────────────────────────────── */

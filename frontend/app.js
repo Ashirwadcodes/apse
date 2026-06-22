@@ -190,11 +190,14 @@ function buildRedirectUrl(source, query) {
 
 function sourceGroup(source, results, totalCount) {
   const isMetadata = source.status === "Metadata search";
-  const fetchedLabel = `${results.length} result${results.length === 1 ? "" : "s"}`;
-  const countLabel = totalCount && totalCount > results.length
-    ? `${results.length} of ${totalCount.toLocaleString()}`
-    : fetchedLabel;
   const info = REDIRECT_SOURCE_INFO[source.id];
+
+  const currentPage = state.pages[source.id] || 1;
+  const totalPages = isMetadata && totalCount ? Math.ceil(totalCount / 20) : 1;
+  const countLabel = totalCount
+    ? `Page ${currentPage} of ${totalPages.toLocaleString()} (${totalCount.toLocaleString()} total)`
+    : `${results.length} result${results.length === 1 ? "" : "s"}`;
+
   const content = isMetadata
     ? `<div class="technology-list">${results.map((item) => technologyCard(item, source)).join("")}</div>`
     : `<div class="technology-list">
@@ -217,8 +220,21 @@ function sourceGroup(source, results, totalCount) {
           </article>`).join("") : ""}
       </div>`;
 
-  const currentPage = state.pages[source.id] || 1;
-  const hasMore = isMetadata && totalCount && (currentPage * 20) < totalCount;
+  const hasPrev = isMetadata && currentPage > 1;
+  const hasNext = isMetadata && totalCount && currentPage < totalPages;
+
+  const pagination = (hasPrev || hasNext) ? `
+    <div class="pagination-bar">
+      <button class="button button-secondary pagination-btn"
+        ${hasPrev ? `onclick="changePage('${source.id}', ${currentPage - 1})"` : "disabled"}>
+        ← Prev
+      </button>
+      <span class="pagination-label">Page ${currentPage} of ${totalPages.toLocaleString()}</span>
+      <button class="button button-secondary pagination-btn"
+        ${hasNext ? `onclick="changePage('${source.id}', ${currentPage + 1})"` : "disabled"}>
+        Next →
+      </button>
+    </div>` : "";
 
   return `
     <section class="source-group" data-source-id="${source.id}">
@@ -236,14 +252,7 @@ function sourceGroup(source, results, totalCount) {
         </div>
       </header>
       ${content}
-      ${hasMore ? `
-        <div class="load-more-wrap">
-          <button class="button button-secondary load-more-btn"
-            onclick="loadMore('${source.id}')">
-            Load more results
-            <span class="load-more-hint">${currentPage * 20} of ${totalCount.toLocaleString()}</span>
-          </button>
-        </div>` : ""}
+      ${pagination}
     </section>
   `;
 }
@@ -486,44 +495,36 @@ async function renderSourcesTable() {
 
 // ── Event listeners (unchanged) ───────────────────────────────────────────────
 
-async function loadMore(sourceId) {
-  const btn = document.querySelector(`[data-source-id="${sourceId}"] .load-more-btn`);
-  if (btn) { btn.textContent = "Loading…"; btn.disabled = true; }
+async function changePage(sourceId, page) {
+  const section = document.querySelector(`[data-source-id="${sourceId}"]`);
+  if (!section) return;
 
-  state.pages[sourceId] = (state.pages[sourceId] || 1) + 1;
-  const nextPage = state.pages[sourceId];
+  section.querySelectorAll(".pagination-btn").forEach((b) => { b.disabled = true; });
+  section.querySelector(".pagination-label").textContent =
+    sourceId === "korea_ntb" ? "Connecting to Korea NTB…" : "Loading…";
+  section.querySelector(".technology-list")?.classList.add("page-loading");
+
+  state.pages[sourceId] = page;
 
   try {
-    const data = await fetchResults({ source: sourceId, page: nextPage });
-    const { results, source_totals = {} } = data;
+    const data = await fetchResults({ source: sourceId, page });
     const sourceMap = Object.fromEntries(sourcesCache.map((s) => [s.id, s]));
-    const newItems = results.filter((r) => r.source_id === sourceId);
-
-    if (newItems.length) {
-      const source = sourceMap[sourceId];
-      const list = document.querySelector(`[data-source-id="${sourceId}"] .technology-list`);
-      list.insertAdjacentHTML("beforeend", newItems.map((t) => technologyCard(t, source)).join(""));
-    }
-
-    // Update load-more button
-    const wrap = document.querySelector(`[data-source-id="${sourceId}"] .load-more-wrap`);
-    const total = source_totals[sourceId];
-    const fetched = nextPage * 20;
-    if (wrap) {
-      if (total && fetched < total) {
-        wrap.querySelector(".load-more-btn").disabled = false;
-        wrap.querySelector(".load-more-btn").innerHTML =
-          `Load more results <span class="load-more-hint">${fetched} of ${total.toLocaleString()}</span>`;
-      } else {
-        wrap.remove();
-      }
-    }
+    const source = sourceMap[sourceId];
+    const results = (data.results || []).filter((r) => r.source_id === sourceId);
+    const total = data.source_totals?.[sourceId] || 0;
+    const newHtml = sourceGroup(source, results, total);
+    section.outerHTML = newHtml;
+    setTimeout(() => {
+      document.querySelector(`[data-source-id="${sourceId}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 0);
   } catch {
-    if (btn) { btn.textContent = "Failed — retry"; btn.disabled = false; }
+    section.querySelector(".technology-list")?.classList.remove("page-loading");
+    section.querySelectorAll(".pagination-btn").forEach((b) => { b.disabled = false; });
+    section.querySelector(".pagination-label").textContent = "Failed — retry";
   }
 }
 
-window.loadMore = loadMore;
+window.changePage = changePage;
 
 function runSearch(query) {
   state.query = query.trim();
