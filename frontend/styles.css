@@ -1128,7 +1128,7 @@
 
 .ntb-spinner {
   padding: 24px 20px;
-  color: var(--text-muted);
+  color: var(--muted);
   font-size: 0.9rem;
 }
 
@@ -1138,26 +1138,51 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 4px;
   padding: 20px 24px;
   border-top: 1px solid var(--line);
 }
 
-.pagination-label {
+.pagination-page-btn {
+  min-width: 36px;
+  height: 36px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--white);
+  color: var(--ink);
   font-size: 13px;
-  color: var(--muted);
-  min-width: 120px;
-  text-align: center;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 
-.pagination-btn {
-  min-width: 80px;
+.pagination-page-btn:hover:not(:disabled):not(.active) {
+  background: var(--soft);
+  border-color: var(--blue-700);
 }
 
-.pagination-btn:disabled {
+.pagination-page-btn.active {
+  background: var(--blue-700);
+  color: #fff;
+  border-color: var(--blue-700);
+  font-weight: 600;
+  cursor: default;
+}
+
+.pagination-page-btn:disabled {
   opacity: 0.35;
   cursor: default;
   pointer-events: none;
+}
+
+.pagination-ellipsis {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 4px;
+  font-size: 13px;
+  color: var(--muted);
+  user-select: none;
 }
 
 .page-loading {

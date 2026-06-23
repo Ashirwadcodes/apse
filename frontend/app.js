@@ -223,17 +223,35 @@ function sourceGroup(source, results, totalCount) {
   const hasPrev = isMetadata && currentPage > 1;
   const hasNext = isMetadata && totalCount && currentPage < totalPages;
 
+  function pageButtons(srcId, cur, total) {
+    const btns = [];
+    const add = (p, label, active, disabled) =>
+      `<button class="pagination-page-btn${active ? " active" : ""}"
+        ${disabled ? "disabled" : `onclick="changePage('${srcId}', ${p})"`}>${label}</button>`;
+
+    btns.push(add(cur - 1, "←", false, cur === 1));
+
+    // Always show first page
+    btns.push(add(1, "1", cur === 1, false));
+    if (cur > 4) btns.push(`<span class="pagination-ellipsis">…</span>`);
+
+    // Pages around current
+    const start = Math.max(2, cur - 2);
+    const end = Math.min(total - 1, cur + 2);
+    for (let p = start; p <= end; p++) btns.push(add(p, p, p === cur, false));
+
+    if (cur < total - 3) btns.push(`<span class="pagination-ellipsis">…</span>`);
+
+    // Always show last page if more than 1
+    if (total > 1) btns.push(add(total, total, cur === total, false));
+
+    btns.push(add(cur + 1, "→", false, cur === total));
+    return btns.join("");
+  }
+
   const pagination = (hasPrev || hasNext) ? `
     <div class="pagination-bar">
-      <button class="button button-secondary pagination-btn"
-        ${hasPrev ? `onclick="changePage('${source.id}', ${currentPage - 1})"` : "disabled"}>
-        ← Prev
-      </button>
-      <span class="pagination-label">Page ${currentPage} of ${totalPages.toLocaleString()}</span>
-      <button class="button button-secondary pagination-btn"
-        ${hasNext ? `onclick="changePage('${source.id}', ${currentPage + 1})"` : "disabled"}>
-        Next →
-      </button>
+      ${pageButtons(source.id, currentPage, totalPages)}
     </div>` : "";
 
   return `
@@ -419,6 +437,14 @@ const SOURCE_DETAIL = {
     coverage: "Australia — all patent applications lodged with IP Australia, including PCT applications entering the national phase.",
     searchHint: "Results link directly to the Australian Patent Search portal for full specifications.",
   },
+  csir_india: {
+    flag: "🇮🇳",
+    size: "1,739",
+    sizeLabel: "technologies",
+    description: "India's Council of Scientific and Industrial Research (CSIR) technology transfer portal — spanning 30+ national laboratories across agriculture, food, health, energy, materials, ICT, and manufacturing.",
+    coverage: "India — technologies from CSIR institutes available for licensing, joint development, and commercialisation by domestic and international partners.",
+    searchHint: "Search by technology name, application area, or CSIR institute. Each result links directly to the full technology profile.",
+  },
 };
 
 function sourceDetailCard(source) {
@@ -499,9 +525,9 @@ async function changePage(sourceId, page) {
   const section = document.querySelector(`[data-source-id="${sourceId}"]`);
   if (!section) return;
 
-  section.querySelectorAll(".pagination-btn").forEach((b) => { b.disabled = true; });
-  section.querySelector(".pagination-label").textContent =
-    sourceId === "korea_ntb" ? "Connecting to Korea NTB…" : "Loading…";
+  section.querySelectorAll(".pagination-page-btn").forEach((b) => { b.disabled = true; });
+  const activeBtn = section.querySelector(".pagination-page-btn.active");
+  if (activeBtn) activeBtn.textContent = sourceId === "korea_ntb" ? "Connecting…" : "…";
   section.querySelector(".technology-list")?.classList.add("page-loading");
 
   state.pages[sourceId] = page;
@@ -519,8 +545,9 @@ async function changePage(sourceId, page) {
     }, 0);
   } catch {
     section.querySelector(".technology-list")?.classList.remove("page-loading");
-    section.querySelectorAll(".pagination-btn").forEach((b) => { b.disabled = false; });
-    section.querySelector(".pagination-label").textContent = "Failed — retry";
+    section.querySelectorAll(".pagination-page-btn").forEach((b) => { b.disabled = false; });
+    const label = section.querySelector(".pagination-page-btn.active");
+    if (label) label.textContent = "Failed — retry";
   }
 }
 
