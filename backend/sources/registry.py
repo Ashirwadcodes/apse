@@ -11,7 +11,7 @@ SOURCES = [
     KoreaNTBSource(),
     WIPOPatentscopeSource(),
     *([_ip_aus] if settings.IP_AUSTRALIA_CLIENT_ID else []),
-    *([_csir] if _csir.is_healthy() else []),
+    _csir,
 ]
 
 SOURCE_MAP = {s.id: s for s in SOURCES}

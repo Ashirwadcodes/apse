@@ -9,6 +9,7 @@ from backend.models.technology import Technology
 logger = logging.getLogger(__name__)
 
 _DATA_PATH = Path(__file__).parent / "data" / "csir_india.json"
+logger.info("CSIR: data path resolved to %s (exists=%s)", _DATA_PATH, _DATA_PATH.exists())
 
 
 class CSIRIndiaSource(BaseSource):
