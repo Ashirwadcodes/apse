@@ -31,7 +31,7 @@ class CSIRIndiaSource(BaseSource):
             logger.warning("CSIR: data file NOT FOUND at %s", _DATA_PATH)
             self._records = []
         else:
-            with open(_DATA_PATH, encoding="utf-8") as f:
+            with open(_DATA_PATH, encoding="utf-8-sig") as f:
                 self._records = json.load(f)
             logger.warning("CSIR: loaded %d records OK from %s", len(self._records), _DATA_PATH)
         self._loaded = True
