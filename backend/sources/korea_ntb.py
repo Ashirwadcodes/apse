@@ -11,25 +11,6 @@ from backend.config import settings
 logger = logging.getLogger(__name__)
 
 
-async def _translate_to_korean(query: str) -> str:
-    """Kept for future language-filter feature — not called during normal search."""
-    _is_korean = lambda t: any("가" <= ch <= "힣" for ch in t)
-    if not query or _is_korean(query):
-        return query
-    try:
-        async with httpx.AsyncClient(timeout=3.0) as client:
-            r = await client.get(
-                "https://api.mymemory.translated.net/get",
-                params={"q": query[:400], "langpair": "en|ko"},
-            )
-        translated = r.json().get("responseData", {}).get("translatedText", "")
-        if translated and translated.lower() != query.lower():
-            return translated
-    except Exception:
-        pass
-    return query
-
-
 class KoreaNTBSource(BaseSource):
     id = "korea_ntb"
     name = "Korea National Technology Bank"

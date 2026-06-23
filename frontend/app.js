@@ -293,10 +293,12 @@ async function fetchResults(overrides = {}) {
   const params = new URLSearchParams();
   const page = overrides.page || 1;
   const src  = overrides.source !== undefined ? overrides.source : state.source;
+  const excl = overrides.exclude;
   if (state.query)    params.set("q", state.query);
   if (state.country)  params.set("country", state.country);
   if (state.sector)   params.set("sector", state.sector);
   if (src)            params.set("source", src);
+  if (excl)           params.set("exclude", excl);
   if (state.language) params.set("language", state.language);
   if (page > 1)       params.set("page", page);
   const res = await fetch(`${API_BASE}/search?${params}`);
@@ -341,12 +343,14 @@ async function renderResults() {
   const ntbActive = !activeSourceFilter || activeSourceFilter === "korea_ntb";
   const fastSource = activeSourceFilter === "korea_ntb" ? "" : activeSourceFilter;
 
-  // Fast lane: everything except NTB (or the single non-NTB source selected)
+  // Fast lane: everything except NTB (or the single non-NTB source selected).
+  // Pass exclude=korea_ntb so the backend skips NTB entirely — otherwise the
+  // backend waits up to 25s for NTB before returning, defeating the two-lane split.
   let fastData;
   try {
     fastData = activeSourceFilter === "korea_ntb"
       ? { results: [], total: 0, sources_hit: 0, source_totals: {} }
-      : await fetchResults({ source: fastSource });
+      : await fetchResults({ source: fastSource, exclude: !activeSourceFilter ? "korea_ntb" : undefined });
   } catch {
     els.results.innerHTML = `
       <div class="empty-state">
@@ -591,7 +595,12 @@ document.querySelector("#popular-chips").addEventListener("click", (event) => {
 });
 
 els.clear.addEventListener("click", () => {
-  Object.keys(state).forEach((key) => { state[key] = ""; });
+  state.query = "";
+  state.country = "";
+  state.sector = "";
+  state.source = "";
+  state.language = "";
+  state.pages = {};
   els.input.value = "";
   [els.country, els.sector, els.source, els.language].forEach((select) => {
     select.value = "";

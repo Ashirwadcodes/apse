@@ -25,6 +25,7 @@ async def search(
     country: Optional[str] = None,
     sector: Optional[str] = None,
     source: Optional[str] = None,
+    exclude: Optional[str] = None,
     language: Optional[str] = None,
     page: int = 1,
 ):
@@ -48,6 +49,9 @@ async def search(
     active_sources = SOURCES
     if source:
         active_sources = [s for s in SOURCES if s.id == source]
+    if exclude:
+        excluded_ids = {x.strip() for x in exclude.split(",")}
+        active_sources = [s for s in active_sources if s.id not in excluded_ids]
     if country:
         active_sources = [s for s in active_sources if s.country == country or s.country == "Global"]
 
