@@ -116,7 +116,7 @@ class IPAustraliaSource(BaseSource):
             reg_date=filing_date,
             keywords=[],
             sub_sector="",
-            url=f"https://ipsearch.ipaustralia.gov.au/patents/search/quick#criteria=AU;APN;{app_num};None",
+            url=f"https://ipsearch.ipaustralia.gov.au/patents/{app_num}" if app_num else "",
             fetched_at=datetime.utcnow(),
         )
 
