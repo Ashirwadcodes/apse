@@ -19,8 +19,8 @@ class IPAustraliaSource(BaseSource):
     url = "https://www.ipaustralia.gov.au/patents"
     ttl_seconds = 86400
 
-    _TOKEN_URL = "https://test.api.ipaustralia.gov.au/public/external-token-api/v1/access_token"
-    _SEARCH_URL = "https://test.api.ipaustralia.gov.au/public/australian-patent-search-api/v1/search/quick"
+    _TOKEN_URL = "https://production.api.ipaustralia.gov.au/public/external-token-api/v1/access_token"
+    _SEARCH_URL = "https://production.api.ipaustralia.gov.au/public/australian-patent-search-api/v1/search/quick"
 
     def __init__(self):
         self._token: str | None = None

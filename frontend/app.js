@@ -442,7 +442,7 @@ const SOURCE_DETAIL = {
   ip_australia: {
     flag: "🇦🇺",
     size: "6,000+",
-    sizeLabel: "patents (test DB)",
+    sizeLabel: "patents",
     description: "Australian patent applications and grants searched via the IP Australia Patent Search API. Covers innovation patents, standard patents, and PCT national phase entries.",
     coverage: "Australia — all patent applications lodged with IP Australia, including PCT applications entering the national phase.",
     searchHint: "Results link directly to the Australian Patent Search portal for full specifications.",
