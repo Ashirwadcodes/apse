@@ -198,8 +198,15 @@ function sourceGroup(source, results, totalCount) {
     ? `Page ${currentPage} of ${totalPages.toLocaleString()} (${totalCount.toLocaleString()} total)`
     : `${results.length} result${results.length === 1 ? "" : "s"}`;
 
+  const noResultsHint = {
+    ip_australia: "Enter a search term above to find Australian patents.",
+    korea_ntb: "Enter a search term above to find Korean technologies.",
+  };
+
   const content = isMetadata
-    ? `<div class="technology-list">${results.map((item) => technologyCard(item, source)).join("")}</div>`
+    ? results.length
+      ? `<div class="technology-list">${results.map((item) => technologyCard(item, source)).join("")}</div>`
+      : `<div class="empty-state"><p>${noResultsHint[source.id] || "No results found — try a different keyword."}</p></div>`
     : `<div class="technology-list">
         ${info ? info.cards.map((card) => `
           <article class="technology-card external-card">
@@ -314,12 +321,12 @@ function _renderGroups(results, source_totals, sourceMap, activeSourceFilter) {
     if (!groups[tech.source_id]) groups[tech.source_id] = [];
     groups[tech.source_id].push(tech);
   });
-  // Always show redirect sources
+  // Always show redirect sources and the actively-filtered source (even with 0 results)
   sourcesCache.forEach((s) => {
-    if (s.status === "Search redirect") {
-      if (!activeSourceFilter || activeSourceFilter === s.id) {
-        if (!groups[s.id]) groups[s.id] = [];
-      }
+    const isRedirect = s.status === "Search redirect";
+    const isActiveFilter = activeSourceFilter === s.id;
+    if ((isRedirect && (!activeSourceFilter || isActiveFilter)) || isActiveFilter) {
+      if (!groups[s.id]) groups[s.id] = [];
     }
   });
   return Object.entries(groups).map(([sourceId, techs]) => {
