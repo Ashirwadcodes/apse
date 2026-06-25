@@ -30,56 +30,70 @@ CONCURRENCY = 4
 DELAY = 0.5
 
 
-async def get_all_tech_urls(client: httpx.AsyncClient) -> list[str]:
-    """Paginate through the listing and collect all tech detail URLs."""
+CATEGORY_SLUGS = [
+    "agricultural-productivity",
+    "it-development",
+    "msme-competitiveness",
+    "quality-healthcare",
+    "disaster-resilience",
+]
+
+async def _get_tech_urls_from_category(client: httpx.AsyncClient, cat_slug: str) -> list[str]:
+    """Paginate a single category page and return individual tech URLs."""
     urls = []
     page = 0
+    cat_url = f"{LIST_URL}/{cat_slug}"
+    cat_prefix = f"{cat_url}/"
+
     while True:
-        url = f"{LIST_URL}?page={page}" if page > 0 else LIST_URL
-        print(f"  Fetching listing page {page}: {url}")
+        paged = f"{cat_url}?page={page}" if page > 0 else cat_url
         try:
-            r = await client.get(url, headers=HEADERS, timeout=30)
+            r = await client.get(paged, headers=HEADERS, timeout=30)
             r.raise_for_status()
         except Exception as e:
-            print(f"  Listing page {page} failed — {e}")
+            print(f"    Category {cat_slug} page {page} failed — {e}")
             break
 
         soup = BeautifulSoup(r.text, "html.parser")
-
-        # Collect links to individual tech pages
         found = []
+
         for a in soup.find_all("a", href=True):
             href = a["href"]
-            # Drupal tech detail URLs: /technologies/some-tech-name (not paginated params)
-            if re.match(r"^/technologies/[a-z0-9\-]+$", href):
-                full = urljoin(BASE, href)
-                if full not in urls and full not in found:
-                    found.append(full)
+            full = urljoin(BASE, href)
+            # Individual tech pages sit one level deeper than the category
+            if full.startswith(cat_prefix) and "?" not in full and full not in urls:
+                found.append(full)
 
         if not found:
-            # Try view-row article links or node links
-            for a in soup.select("article a, .views-row a, .node a, h2 a, h3 a"):
-                href = a.get("href", "")
-                if "/technologies/" in href and "?page=" not in href:
+            # Fallback: any /node/ links
+            for a in soup.find_all("a", href=True):
+                href = a["href"]
+                if re.match(r"^/node/\d+$", href):
                     full = urljoin(BASE, href)
-                    if full not in urls and full not in found and full != LIST_URL:
+                    if full not in urls and full not in found:
                         found.append(full)
 
-        if not found:
-            print(f"  No new URLs on page {page}, stopping.")
-            break
-
         urls.extend(found)
-        print(f"  Page {page}: +{len(found)} URLs (total {len(urls)})")
+        print(f"    [{cat_slug}] page {page}: +{len(found)} techs (total {len(urls)})")
 
-        # Check if there's a next page link
         next_link = soup.select_one("a[rel='next'], .pager__item--next a, li.next a")
-        if not next_link:
+        if not next_link or not found:
             break
         page += 1
         await asyncio.sleep(DELAY)
 
     return list(dict.fromkeys(urls))
+
+
+async def get_all_tech_urls(client: httpx.AsyncClient) -> list[str]:
+    """Walk all 5 category pages and collect individual tech URLs."""
+    all_urls = []
+    for cat in CATEGORY_SLUGS:
+        print(f"  Category: {cat}")
+        cat_urls = await _get_tech_urls_from_category(client, cat)
+        all_urls.extend(cat_urls)
+        await asyncio.sleep(DELAY)
+    return list(dict.fromkeys(all_urls))
 
 
 def _detect_sector(text: str) -> str:
