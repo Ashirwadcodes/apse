@@ -90,4 +90,29 @@ class TTLCache:
             self._conn.commit()
 
 
-cache = TTLCache()
+try:
+    cache = TTLCache()
+except Exception as _e:
+    logger.error("SQLite cache init failed (%s) — falling back to in-memory cache", _e)
+
+    class _MemoryFallback:
+        def __init__(self):
+            self._store: dict = {}
+            self._lock = threading.Lock()
+        def get(self, key):
+            with self._lock:
+                entry = self._store.get(key)
+                if entry is None: return None
+                val, exp = entry
+                if time.time() > exp:
+                    del self._store[key]; return None
+                return val
+        def set(self, key, value, ttl=86400):
+            with self._lock:
+                self._store[key] = (value, time.time() + ttl)
+        def invalidate(self, key):
+            with self._lock: self._store.pop(key, None)
+        def clear(self):
+            with self._lock: self._store.clear()
+
+    cache = _MemoryFallback()
