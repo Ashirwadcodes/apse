@@ -478,6 +478,14 @@ const SOURCE_DETAIL = {
     coverage: "Sri Lanka — nanotechnology-driven innovations from SLINTEC available for licensing and joint development.",
     searchHint: "Search by technology name or application area. Each result links to the SLINTEC technology page.",
   },
+  tech2biz: {
+    flag: "🇹🇭",
+    size: "645",
+    sizeLabel: "technologies",
+    description: "Tech2Biz is Thailand's national technology matching platform, connecting researchers from NSTDA institutes and universities with investors and entrepreneurs seeking innovations for commercialisation.",
+    coverage: "Thailand — technologies from NSTDA, universities, and public R&D institutes across agriculture, health, ICT, materials, food, energy, and manufacturing.",
+    searchHint: "Search in English — titles have been translated from Thai. Use the Translate button on each card to read full descriptions in English.",
+  },
 };
 
 function sourceDetailCard(source) {
