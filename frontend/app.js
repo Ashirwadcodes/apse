@@ -486,6 +486,14 @@ const SOURCE_DETAIL = {
     coverage: "Thailand — technologies from NSTDA, universities, and public R&D institutes across agriculture, health, ICT, materials, food, energy, and manufacturing.",
     searchHint: "Search in English — titles have been translated from Thai. Use the Translate button on each card to read full descriptions in English.",
   },
+  jst_japan: {
+    flag: "🇯🇵",
+    size: "303",
+    sizeLabel: "patents",
+    description: "Japan Science and Technology Agency (JST) patent portfolio — patents from Japanese universities and public research institutes explicitly available for international licensing across 14 technology categories.",
+    coverage: "Japan — patents from JST-funded research institutions covering biotech, materials, semiconductors, energy, medical devices, software, robotics, and more. Each patent links directly to Google Patents for full specifications.",
+    searchHint: "Search by technology name, inventor, or category (e.g. 'BIOTECHNOLOGY', 'ENERGY/GREEN'). Licensing enquiries: license@jst.go.jp",
+  },
 };
 
 function sourceDetailCard(source) {
