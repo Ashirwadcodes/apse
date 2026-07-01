@@ -5,21 +5,6 @@ let sourcesCache = [];
 
 const GLOBAL_PAGE_SIZE = 20;
 
-const SECTOR_OPTIONS = [
-  { value: "Agriculture", label: "Agriculture & Food" },
-  { value: "Energy", label: "Energy & Environment" },
-  { value: "ICT", label: "Information & Communication Technology" },
-  { value: "Health", label: "Health & Medical" },
-  { value: "Manufacturing", label: "Manufacturing & Materials" },
-  { value: "Water", label: "Water & Sanitation" },
-  { value: "Transport", label: "Transport & Infrastructure" },
-  { value: "Biotechnology", label: "Biotechnology" },
-  { value: "Climate", label: "Climate & Disaster Risk" },
-  { value: "Construction", label: "Construction & Urban Development" },
-  { value: "Chemical", label: "Chemical & Pharmaceutical" },
-  { value: "Electronics", label: "Electronics & Semiconductors" },
-];
-
 const DBTYPE_OPTIONS = [
   { value: "Metadata search", label: "Full technology listings" },
   { value: "Search redirect", label: "External search redirect" },
@@ -397,6 +382,12 @@ async function fetchSources() {
   return res.json();
 }
 
+async function fetchFacets() {
+  const res = await fetch(`${API_BASE}/facets`);
+  if (!res.ok) throw new Error("Facets fetch failed");
+  return res.json();
+}
+
 async function fetchResults(overrides = {}) {
   const params = new URLSearchParams();
   const page = overrides.page || 1;
@@ -665,20 +656,25 @@ async function renderSourcesTable() {
   const grid = document.querySelector("#source-cards-grid");
   const badge = document.querySelector("#source-count-badge strong");
   try {
-    const sources = await fetchSources();
+    const [sources, facets] = await Promise.all([
+      fetchSources(),
+      fetchFacets().catch(() => ({ sectors: [] })),
+    ]);
     sourcesCache = sources;
 
-    // Populate filters
+    // Populate filters — sector options are scraped live from every source's
+    // actual records rather than a fixed generic bucket list.
     const countryOptions = [...new Set(sources.map((s) => s.country))].sort()
       .map((c) => ({ value: c, label: c }));
     const sourceOptions = sources.map((s) => ({ value: s.id, label: s.name }));
+    const sectorOptions = (facets.sectors || []).map((s) => ({ value: s, label: s }));
 
     initMultiselect(els.countryMs, countryOptions, () => state.countries, (next) => {
       state.countries = next;
       state.mergedPage = 1;
       renderResults();
     });
-    initMultiselect(els.sectorMs, SECTOR_OPTIONS, () => state.sectors, (next) => {
+    initMultiselect(els.sectorMs, sectorOptions, () => state.sectors, (next) => {
       state.sectors = next;
       state.mergedPage = 1;
       renderResults();
