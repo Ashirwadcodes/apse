@@ -5,10 +5,31 @@ let sourcesCache = [];
 
 const GLOBAL_PAGE_SIZE = 20;
 
+const SECTOR_OPTIONS = [
+  { value: "Agriculture", label: "Agriculture & Food" },
+  { value: "Energy", label: "Energy & Environment" },
+  { value: "ICT", label: "Information & Communication Technology" },
+  { value: "Health", label: "Health & Medical" },
+  { value: "Manufacturing", label: "Manufacturing & Materials" },
+  { value: "Water", label: "Water & Sanitation" },
+  { value: "Transport", label: "Transport & Infrastructure" },
+  { value: "Biotechnology", label: "Biotechnology" },
+  { value: "Climate", label: "Climate & Disaster Risk" },
+  { value: "Construction", label: "Construction & Urban Development" },
+  { value: "Chemical", label: "Chemical & Pharmaceutical" },
+  { value: "Electronics", label: "Electronics & Semiconductors" },
+];
+
+const DBTYPE_OPTIONS = [
+  { value: "Metadata search", label: "Full technology listings" },
+  { value: "Search redirect", label: "External search redirect" },
+];
+
 const state = {
   query: "",
-  country: "",
-  sector: "",
+  countries: [],
+  sectors: [],
+  databaseTypes: [],
   source: "",
   language: "",
   mergedPage: 1,
@@ -20,14 +41,69 @@ const els = {
   results: document.querySelector("#results-container"),
   title: document.querySelector("#results-title"),
   summary: document.querySelector("#results-summary"),
-  country: document.querySelector("#country-filter"),
-  sector: document.querySelector("#sector-filter"),
+  countryMs: document.querySelector("#country-multiselect"),
+  sectorMs: document.querySelector("#sector-multiselect"),
+  dbtypeMs: document.querySelector("#dbtype-multiselect"),
   source: document.querySelector("#source-filter"),
   language: document.querySelector("#language-filter"),
   clear: document.querySelector("#clear-filters"),
   filters: document.querySelector(".filters"),
   statsBar: document.querySelector("#global-stats-bar"),
 };
+
+// ── Multi-select filter widget ───────────────────────────────────────────────
+
+const multiselectInstances = [];
+
+function initMultiselect(containerEl, options, getSelected, onChange) {
+  function render() {
+    const selected = getSelected();
+    const label = selected.length === 0
+      ? containerEl.dataset.label
+      : selected.length === 1
+        ? (options.find((o) => o.value === selected[0])?.label || selected[0])
+        : `${selected.length} selected`;
+
+    containerEl.innerHTML = `
+      <button type="button" class="multiselect-toggle">
+        <span>${label}</span>
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5 8 5 5 5-5" /></svg>
+      </button>
+      <div class="multiselect-panel" hidden>
+        ${options.map((o) => `
+          <label class="multiselect-option">
+            <input type="checkbox" value="${o.value}" ${selected.includes(o.value) ? "checked" : ""}>
+            <span>${o.label}</span>
+          </label>`).join("")}
+      </div>`;
+
+    containerEl.querySelector(".multiselect-toggle").addEventListener("click", (e) => {
+      e.stopPropagation();
+      const panel = containerEl.querySelector(".multiselect-panel");
+      const willOpen = panel.hasAttribute("hidden");
+      multiselectInstances.forEach((c) => c.querySelector(".multiselect-panel")?.setAttribute("hidden", ""));
+      if (willOpen) panel.removeAttribute("hidden");
+    });
+
+    containerEl.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
+      cb.addEventListener("change", () => {
+        const next = [...containerEl.querySelectorAll('input[type="checkbox"]:checked')].map((x) => x.value);
+        onChange(next);
+        render();
+        containerEl.querySelector(".multiselect-panel").removeAttribute("hidden");
+      });
+    });
+  }
+  render();
+  containerEl._render = render;
+  multiselectInstances.push(containerEl);
+}
+
+document.addEventListener("click", (e) => {
+  multiselectInstances.forEach((c) => {
+    if (!c.contains(e.target)) c.querySelector(".multiselect-panel")?.setAttribute("hidden", "");
+  });
+});
 
 // ── Helpers (unchanged) ──────────────────────────────────────────────────────
 
@@ -352,9 +428,9 @@ async function fetchResults(overrides = {}) {
   const page = overrides.page || 1;
   const src  = overrides.source !== undefined ? overrides.source : state.source;
   const excl = overrides.exclude;
-  if (state.query)    params.set("q", state.query);
-  if (state.country)  params.set("country", state.country);
-  if (state.sector)   params.set("sector", state.sector);
+  if (state.query)          params.set("q", state.query);
+  if (state.countries.length) params.set("country", state.countries.join(","));
+  if (state.sectors.length)   params.set("sector", state.sectors.join(","));
   if (src)            params.set("source", src);
   if (excl)           params.set("exclude", excl);
   if (state.language) params.set("language", state.language);
@@ -381,14 +457,18 @@ function updateStatsBar(totalTechs, totalSources) {
 // (by source or by country) and always counted toward the header total.
 function getActiveMergeIds() {
   const sourceMap = Object.fromEntries(sourcesCache.map((s) => [s.id, s]));
+  // Database type filter narrows to specific status values; if the user has
+  // unchecked "Full technology listings" entirely, the merged grid is empty.
+  if (state.databaseTypes.length && !state.databaseTypes.includes("Metadata search")) return [];
+
   let ids = sourcesCache
     .filter((s) => s.status === "Metadata search")
     .map((s) => s.id);
 
   if (state.source) ids = ids.filter((id) => id === state.source);
-  if (state.country) ids = ids.filter((id) => sourceMap[id]?.country === state.country);
+  if (state.countries.length) ids = ids.filter((id) => state.countries.includes(sourceMap[id]?.country));
 
-  const explicitlyWantsNTB = state.source === "korea_ntb" || state.country === "Republic of Korea";
+  const explicitlyWantsNTB = state.source === "korea_ntb" || state.countries.includes("Republic of Korea");
   if (!explicitlyWantsNTB) ids = ids.filter((id) => id !== "korea_ntb");
 
   // IP Australia's quick-search API requires a real query term — including it
@@ -400,8 +480,11 @@ function getActiveMergeIds() {
 }
 
 function getRedirectSources() {
+  if (state.databaseTypes.length && !state.databaseTypes.includes("Search redirect")) return [];
   return sourcesCache.filter((s) =>
-    s.status === "Search redirect" && (!state.source || state.source === s.id)
+    s.status === "Search redirect" &&
+    (!state.source || state.source === s.id) &&
+    (!state.countries.length || state.countries.includes(s.country))
   );
 }
 
@@ -609,10 +692,26 @@ async function renderSourcesTable() {
     const sources = await fetchSources();
     sourcesCache = sources;
 
-    // Populate filter dropdowns
-    const countries = [...new Set(sources.map((s) => s.country))].sort();
-    populateSelect(els.country, countries);
+    // Populate filters
+    const countryOptions = [...new Set(sources.map((s) => s.country))].sort()
+      .map((c) => ({ value: c, label: c }));
     populateSelect(els.source, sources, (s) => s.name);
+
+    initMultiselect(els.countryMs, countryOptions, () => state.countries, (next) => {
+      state.countries = next;
+      state.mergedPage = 1;
+      renderResults();
+    });
+    initMultiselect(els.sectorMs, SECTOR_OPTIONS, () => state.sectors, (next) => {
+      state.sectors = next;
+      state.mergedPage = 1;
+      renderResults();
+    });
+    initMultiselect(els.dbtypeMs, DBTYPE_OPTIONS, () => state.databaseTypes, (next) => {
+      state.databaseTypes = next;
+      state.mergedPage = 1;
+      renderResults();
+    });
 
     if (badge) badge.textContent = sources.length;
     if (grid) grid.innerHTML = sources.map(sourceDetailCard).join("");
@@ -642,8 +741,6 @@ document.querySelector("#popular-chips").addEventListener("click", (event) => {
 });
 
 [
-  [els.country, "country"],
-  [els.sector, "sector"],
   [els.source, "source"],
   [els.language, "language"],
 ].forEach(([select, key]) => {
@@ -656,15 +753,15 @@ document.querySelector("#popular-chips").addEventListener("click", (event) => {
 
 els.clear.addEventListener("click", () => {
   state.query = "";
-  state.country = "";
-  state.sector = "";
+  state.countries = [];
+  state.sectors = [];
+  state.databaseTypes = [];
   state.source = "";
   state.language = "";
   state.mergedPage = 1;
   els.input.value = "";
-  [els.country, els.sector, els.source, els.language].forEach((select) => {
-    select.value = "";
-  });
+  [els.source, els.language].forEach((select) => { select.value = ""; });
+  [els.countryMs, els.sectorMs, els.dbtypeMs].forEach((c) => c._render?.());
   renderResults();
 });
 

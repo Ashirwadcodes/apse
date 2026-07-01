@@ -53,7 +53,8 @@ async def search(
         excluded_ids = {x.strip() for x in exclude.split(",")}
         active_sources = [s for s in active_sources if s.id not in excluded_ids]
     if country:
-        active_sources = [s for s in active_sources if s.country == country or s.country == "Global"]
+        countries = {c.strip() for c in country.split(",") if c.strip()}
+        active_sources = [s for s in active_sources if s.country in countries or s.country == "Global"]
 
     # NTB API (Korean govt) takes 12-18s from Render's US servers — needs extra budget
     SOURCE_TIMEOUTS = {"korea_ntb": 25.0}

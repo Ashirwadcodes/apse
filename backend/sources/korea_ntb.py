@@ -61,7 +61,8 @@ class KoreaNTBSource(BaseSource):
         if query:
             params["techName"] = query
         if filters.get("sector"):
-            params["tcateNamep"] = filters["sector"]
+            # NTB's external API only accepts a single category — use the first selected
+            params["tcateNamep"] = filters["sector"].split(",")[0].strip()
 
         logger.info("NTB: search q=%r page=%d", query, page)
         try:

@@ -62,11 +62,12 @@ class Tech2BizSource(BaseSource):
         page_size = 20
 
         q = query.lower()
-        sector_filter = (filters.get("sector") or "").lower()
+        sector_filters = [s.strip().lower() for s in (filters.get("sector") or "").split(",") if s.strip()]
 
         matched = []
         for rec in self._records:
-            if sector_filter and sector_filter not in rec.get("sector", "").lower():
+            rec_sector = rec.get("sector", "").lower()
+            if sector_filters and not any(sf in rec_sector for sf in sector_filters):
                 continue
             if q:
                 searchable = " ".join([
