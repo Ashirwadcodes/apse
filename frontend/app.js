@@ -366,11 +366,12 @@ async function fetchResults(overrides = {}) {
 
 // ── Rendering ─────────────────────────────────────────────────────────────────
 
-function updateStatsBar(totalTechs, totalSources, extra = "") {
+function updateStatsBar(totalTechs, totalSources) {
   if (!els.statsBar) return;
   els.statsBar.querySelector(".gsb-number").textContent = totalTechs.toLocaleString();
   els.statsBar.querySelector(".gsb-label").textContent =
-    `technolog${totalTechs === 1 ? "y" : "ies"} across ${totalSources} source platform${totalSources === 1 ? "" : "s"}${extra}`;
+    `technolog${totalTechs === 1 ? "y" : "ies"} across ${totalSources} source platform${totalSources === 1 ? "" : "s"}. `
+    + `Filter by source to view totals for each individual source.`;
 }
 
 // Sources that back the merged, paginated grid (metadata-search sources).
@@ -406,11 +407,28 @@ function getRedirectSources() {
 
 let lastActiveIds = [];
 
+function mergedGridHeader(activeIds, mergedPage, totalPages, totalAcrossSources) {
+  return `
+    <header class="group-header">
+      <div class="group-source">
+        <span class="source-initial" aria-hidden="true">ALL</span>
+        <div>
+          <h3>Search results</h3>
+          <p>${activeIds.length} source platform${activeIds.length === 1 ? "" : "s"}</p>
+        </div>
+      </div>
+      <div class="group-meta">
+        <span class="result-count">Page ${mergedPage} of ${totalPages.toLocaleString()} (${totalAcrossSources.toLocaleString()} total)</span>
+        <span class="status status-metadata">Metadata search</span>
+      </div>
+    </header>`;
+}
+
 async function renderResults() {
   els.title.textContent = state.query ? `Results for "${state.query}"` : "Technology search results";
   els.summary.textContent = "Searching across source platforms…";
   els.results.innerHTML = `<div class="empty-state"><p>Loading results…</p></div>`;
-  updateStatsBar(0, 0, " — searching…");
+  updateStatsBar(0, 0);
 
   const activeIds = getActiveMergeIds();
   const redirectSources = getRedirectSources();
@@ -431,20 +449,24 @@ async function renderResults() {
   const redirectHtml = redirectSources.map(redirectSourceBlock).join("");
   const gridHtml = renderMergedGrid(merged.items);
   const paginationHtml = merged.items.length ? renderPaginationBar(state.mergedPage, merged.totalPages) : "";
+  const headerHtml = merged.items.length
+    ? mergedGridHeader(activeIds, state.mergedPage, merged.totalPages, merged.totalAcrossSources)
+    : "";
 
   els.results.innerHTML = `
     <div class="merged-grid-wrap">
+      ${headerHtml}
       ${gridHtml}
       ${paginationHtml}
     </div>
     ${redirectHtml}`;
 
   els.summary.textContent = merged.items.length
-    ? `Showing page ${state.mergedPage} of ${merged.totalPages.toLocaleString()}.`
+    ? "Explore technology offers from participating source platforms."
     : "No results on this page — try adjusting your filters.";
 
   const includesNTB = activeIds.includes("korea_ntb");
-  updateStatsBar(merged.totalAcrossSources, activeIds.length, includesNTB ? "" : " (+ Korea NTB — checking…)");
+  updateStatsBar(merged.totalAcrossSources, activeIds.length);
 
   // Fetch Korea NTB's live total in the background purely for the header count,
   // unless it's already part of the merged pool above.
@@ -453,8 +475,7 @@ async function renderResults() {
       .then((data) => {
         const ntbTotal = data.source_totals?.korea_ntb || 0;
         if (lastActiveIds !== activeIds) return; // a newer search superseded this one
-        updateStatsBar(merged.totalAcrossSources + ntbTotal, activeIds.length + (ntbTotal ? 1 : 0),
-          ntbTotal ? ` (includes ${ntbTotal.toLocaleString()} from Korea NTB — filter by source to browse them)` : "");
+        updateStatsBar(merged.totalAcrossSources + ntbTotal, activeIds.length + (ntbTotal ? 1 : 0));
       })
       .catch(() => {});
   }
