@@ -3,13 +3,15 @@ const API_BASE = "https://apsei-api.onrender.com/api/v1";
 // Runtime state — sources populated on init, technologies fetched on each search
 let sourcesCache = [];
 
+const GLOBAL_PAGE_SIZE = 20;
+
 const state = {
   query: "",
   country: "",
   sector: "",
   source: "",
   language: "",
-  pages: {},   // { source_id: currentPage }
+  mergedPage: 1,
 };
 
 const els = {
@@ -24,6 +26,7 @@ const els = {
   language: document.querySelector("#language-filter"),
   clear: document.querySelector("#clear-filters"),
   filters: document.querySelector(".filters"),
+  statsBar: document.querySelector("#global-stats-bar"),
 };
 
 // ── Helpers (unchanged) ──────────────────────────────────────────────────────
@@ -75,10 +78,14 @@ function technologyCard(technology, source) {
     .join("");
 
   const needsTranslation = technology.language === "Korean";
+  const flag = (SOURCE_DETAIL[source.id] || {}).flag || "";
 
   return `
     <article class="technology-card" data-tech-id="${technology.id}">
-      <span class="card-sector">${technology.sector}</span>
+      <div class="card-top-row">
+        <span class="card-sector">${technology.sector}</span>
+        <span class="card-source-pill" title="${source.name}">${flag} ${source.name}</span>
+      </div>
       <h4 class="card-title">${technology.title}</h4>
       <p class="card-summary">${technology.summary || "No summary available."}</p>
       ${keywords.length ? `
@@ -188,26 +195,9 @@ function buildRedirectUrl(source, query) {
   return source.url;
 }
 
-function sourceGroup(source, results, totalCount) {
-  const isMetadata = source.status === "Metadata search";
+function redirectSourceBlock(source) {
   const info = REDIRECT_SOURCE_INFO[source.id];
-
-  const currentPage = state.pages[source.id] || 1;
-  const totalPages = isMetadata && totalCount ? Math.ceil(totalCount / 20) : 1;
-  const countLabel = totalCount
-    ? `Page ${currentPage} of ${totalPages.toLocaleString()} (${totalCount.toLocaleString()} total)`
-    : `${results.length} result${results.length === 1 ? "" : "s"}`;
-
-  const noResultsHint = {
-    ip_australia: "Enter a search term above to find Australian patents.",
-    korea_ntb: "Enter a search term above to find Korean technologies.",
-  };
-
-  const content = isMetadata
-    ? results.length
-      ? `<div class="technology-list">${results.map((item) => technologyCard(item, source)).join("")}</div>`
-      : `<div class="empty-state"><p>${noResultsHint[source.id] || "No results found — try a different keyword."}</p></div>`
-    : `<div class="technology-list">
+  const content = `<div class="technology-list">
         ${info ? info.cards.map((card) => `
           <article class="technology-card external-card">
             <span class="card-sector">${card.sector}</span>
@@ -227,46 +217,6 @@ function sourceGroup(source, results, totalCount) {
           </article>`).join("") : ""}
       </div>`;
 
-  const hasPrev = isMetadata && currentPage > 1;
-  const hasNext = isMetadata && totalCount && currentPage < totalPages;
-
-  function pageButtons(srcId, cur, total) {
-    const btns = [];
-    const add = (p, label, active, disabled) =>
-      `<button class="pagination-page-btn${active ? " active" : ""}"
-        ${disabled ? "disabled" : `onclick="changePage('${srcId}', ${p})"`}>${label}</button>`;
-
-    btns.push(add(cur - 1, "←", false, cur === 1));
-
-    // Always show first page
-    btns.push(add(1, "1", cur === 1, false));
-    if (cur > 4) btns.push(`<span class="pagination-ellipsis">…</span>`);
-
-    // Pages around current
-    const start = Math.max(2, cur - 2);
-    const end = Math.min(total - 1, cur + 2);
-    for (let p = start; p <= end; p++) btns.push(add(p, p, p === cur, false));
-
-    if (cur < total - 3) btns.push(`<span class="pagination-ellipsis">…</span>`);
-
-    // Always show last page if more than 1
-    if (total > 1) btns.push(add(total, total, cur === total, false));
-
-    btns.push(add(cur + 1, "→", false, cur === total));
-    return btns.join("");
-  }
-
-  const pagination = (hasPrev || hasNext) ? `
-    <div class="pagination-bar">
-      ${pageButtons(source.id, currentPage, totalPages)}
-      <span class="pagination-jump">
-        <input class="pagination-jump-input" type="number" min="1" max="${totalPages}"
-          placeholder="${currentPage}" aria-label="Go to page"
-          onkeydown="if(event.key==='Enter'){const v=parseInt(this.value);if(v>=1&&v<=${totalPages})changePage('${source.id}',v);}">
-        <span class="pagination-jump-label">of ${totalPages.toLocaleString()}</span>
-      </span>
-    </div>` : "";
-
   return `
     <section class="source-group" data-source-id="${source.id}">
       <header class="group-header">
@@ -278,14 +228,115 @@ function sourceGroup(source, results, totalCount) {
           </div>
         </div>
         <div class="group-meta">
-          <span class="result-count">${isMetadata ? countLabel : (info ? info.size : "External source")}</span>
+          <span class="result-count">${info ? info.size : "External source"}</span>
           <span class="status ${statusClass(source.status)}">${source.status}</span>
         </div>
       </header>
       ${content}
-      ${pagination}
     </section>
   `;
+}
+
+function renderPaginationBar(current, total) {
+  if (total <= 1) return "";
+  const btns = [];
+  const add = (p, label, active, disabled) =>
+    `<button class="pagination-page-btn${active ? " active" : ""}"
+      ${disabled ? "disabled" : `onclick="changeMergedPage(${p})"`}>${label}</button>`;
+
+  btns.push(add(current - 1, "←", false, current === 1));
+  btns.push(add(1, "1", current === 1, false));
+  if (current > 4) btns.push(`<span class="pagination-ellipsis">…</span>`);
+
+  const start = Math.max(2, current - 2);
+  const end = Math.min(total - 1, current + 2);
+  for (let p = start; p <= end; p++) btns.push(add(p, p, p === current, false));
+
+  if (current < total - 3) btns.push(`<span class="pagination-ellipsis">…</span>`);
+  if (total > 1) btns.push(add(total, total, current === total, false));
+  btns.push(add(current + 1, "→", false, current === total));
+
+  return `
+    <div class="pagination-bar">
+      ${btns.join("")}
+      <span class="pagination-jump">
+        <input class="pagination-jump-input" type="number" min="1" max="${total}"
+          placeholder="${current}" aria-label="Go to page"
+          onkeydown="if(event.key==='Enter'){const v=parseInt(this.value);if(v>=1&&v<=${total})changeMergedPage(v);}">
+        <span class="pagination-jump-label">of ${total.toLocaleString()}</span>
+      </span>
+    </div>`;
+}
+
+// ── Merged round-robin grid ─────────────────────────────────────────────────
+// Every metadata-search source paginates independently on the backend at
+// page_size=20. To show one unified, mixed grid we compute — for a given
+// global page — which backend page (and local offset within it) each source
+// needs, fetch those in parallel, then interleave the slices round-robin.
+
+async function fetchSourcePage(sourceId, backendPage) {
+  const data = await fetchResults({ source: sourceId, page: backendPage });
+  return {
+    items: (data.results || []).filter((r) => r.source_id === sourceId),
+    total: data.source_totals?.[sourceId] || 0,
+  };
+}
+
+async function buildMergedPage(globalPage, activeIds) {
+  if (!activeIds.length) return { items: [], totalAcrossSources: 0, totalPages: 1 };
+
+  const n = activeIds.length;
+  const perSourceCount = Math.ceil(GLOBAL_PAGE_SIZE / n);
+  const startOcc = (globalPage - 1) * perSourceCount;
+  const endOcc = startOcc + perSourceCount; // exclusive
+
+  const startBackendPage = Math.floor(startOcc / 20) + 1;
+  const endBackendPage = Math.floor((endOcc - 1) / 20) + 1;
+
+  const sourceMap = Object.fromEntries(sourcesCache.map((s) => [s.id, s]));
+  const perSourceSlices = {};
+  let totalAcrossSources = 0;
+
+  await Promise.all(activeIds.map(async (id) => {
+    const pagesNeeded = startBackendPage === endBackendPage
+      ? [startBackendPage]
+      : [startBackendPage, endBackendPage];
+    const fetched = await Promise.all(pagesNeeded.map((p) => fetchSourcePage(id, p)));
+
+    let combined = [];
+    fetched.forEach((f, i) => {
+      combined = combined.concat(f.items.map((item, idx) => ({
+        item, globalOffset: (pagesNeeded[i] - 1) * 20 + idx,
+      })));
+    });
+    const total = fetched[fetched.length - 1]?.total || fetched[0]?.total || 0;
+    if (total) totalAcrossSources += total;
+
+    const slice = combined
+      .filter((c) => c.globalOffset >= startOcc && c.globalOffset < endOcc)
+      .map((c) => c.item);
+    perSourceSlices[id] = slice;
+  }));
+
+  const merged = [];
+  for (let i = 0; i < perSourceCount; i++) {
+    for (const id of activeIds) {
+      const slice = perSourceSlices[id];
+      if (slice && slice[i]) merged.push({ tech: slice[i], source: sourceMap[id] });
+    }
+  }
+
+  const totalPages = totalAcrossSources ? Math.max(1, Math.ceil(totalAcrossSources / GLOBAL_PAGE_SIZE)) : 1;
+  return { items: merged.slice(0, GLOBAL_PAGE_SIZE), totalAcrossSources, totalPages };
+}
+
+function renderMergedGrid(items) {
+  if (!items.length) {
+    return `<div class="empty-state"><h3>No matching technologies found</h3><p>Try a broader keyword or clear one of the filters.</p></div>`;
+  }
+  return `<div class="technology-list merged-grid">
+    ${items.map(({ tech, source }) => technologyCard(tech, source)).join("")}
+  </div>`;
 }
 
 // ── API fetch layer ───────────────────────────────────────────────────────────
@@ -315,49 +366,59 @@ async function fetchResults(overrides = {}) {
 
 // ── Rendering ─────────────────────────────────────────────────────────────────
 
-function _renderGroups(results, source_totals, sourceMap, activeSourceFilter) {
-  const groups = {};
-  results.forEach((tech) => {
-    if (!groups[tech.source_id]) groups[tech.source_id] = [];
-    groups[tech.source_id].push(tech);
-  });
-  // Always show redirect sources and the actively-filtered source (even with 0 results)
-  sourcesCache.forEach((s) => {
-    const isRedirect = s.status === "Search redirect";
-    const isActiveFilter = activeSourceFilter === s.id;
-    if ((isRedirect && (!activeSourceFilter || isActiveFilter)) || isActiveFilter) {
-      if (!groups[s.id]) groups[s.id] = [];
-    }
-  });
-  return Object.entries(groups).map(([sourceId, techs]) => {
-    const source = sourceMap[sourceId] || {
-      id: sourceId, name: techs[0]?.source_name || sourceId,
-      country: techs[0]?.country || "", institution: "", status: "Metadata search", url: "#",
-    };
-    return sourceGroup(source, techs, source_totals[sourceId]);
-  }).join("");
+function updateStatsBar(totalTechs, totalSources, extra = "") {
+  if (!els.statsBar) return;
+  els.statsBar.querySelector(".gsb-number").textContent = totalTechs.toLocaleString();
+  els.statsBar.querySelector(".gsb-label").textContent =
+    `technolog${totalTechs === 1 ? "y" : "ies"} across ${totalSources} source platform${totalSources === 1 ? "" : "s"}${extra}`;
 }
+
+// Sources that back the merged, paginated grid (metadata-search sources).
+// Korea NTB is excluded from the round-robin pool by default — a single
+// unfiltered search against it takes up to 25s, which would stall every
+// global page load. It's included automatically when explicitly filtered
+// (by source or by country) and always counted toward the header total.
+function getActiveMergeIds() {
+  const sourceMap = Object.fromEntries(sourcesCache.map((s) => [s.id, s]));
+  let ids = sourcesCache
+    .filter((s) => s.status === "Metadata search")
+    .map((s) => s.id);
+
+  if (state.source) ids = ids.filter((id) => id === state.source);
+  if (state.country) ids = ids.filter((id) => sourceMap[id]?.country === state.country);
+
+  const explicitlyWantsNTB = state.source === "korea_ntb" || state.country === "Republic of Korea";
+  if (!explicitlyWantsNTB) ids = ids.filter((id) => id !== "korea_ntb");
+
+  // IP Australia's quick-search API requires a real query term — including it
+  // in the round-robin denominator for a blank search wastes page capacity
+  // since it always contributes 0 items.
+  if (!state.query) ids = ids.filter((id) => id !== "ip_australia");
+
+  return ids;
+}
+
+function getRedirectSources() {
+  return sourcesCache.filter((s) =>
+    s.status === "Search redirect" && (!state.source || state.source === s.id)
+  );
+}
+
+let lastActiveIds = [];
 
 async function renderResults() {
   els.title.textContent = state.query ? `Results for "${state.query}"` : "Technology search results";
   els.summary.textContent = "Searching across source platforms…";
   els.results.innerHTML = `<div class="empty-state"><p>Loading results…</p></div>`;
+  updateStatsBar(0, 0, " — searching…");
 
-  const sourceMap = Object.fromEntries(sourcesCache.map((s) => [s.id, s]));
-  const activeSourceFilter = state.source;
+  const activeIds = getActiveMergeIds();
+  const redirectSources = getRedirectSources();
+  lastActiveIds = activeIds;
 
-  // NTB-only search runs as a separate slow-lane fetch
-  const ntbActive = !activeSourceFilter || activeSourceFilter === "korea_ntb";
-  const fastSource = activeSourceFilter === "korea_ntb" ? "" : activeSourceFilter;
-
-  // Fast lane: everything except NTB (or the single non-NTB source selected).
-  // Pass exclude=korea_ntb so the backend skips NTB entirely — otherwise the
-  // backend waits up to 25s for NTB before returning, defeating the two-lane split.
-  let fastData;
+  let merged;
   try {
-    fastData = activeSourceFilter === "korea_ntb"
-      ? { results: [], total: 0, sources_hit: 0, source_totals: {} }
-      : await fetchResults({ source: fastSource, exclude: !activeSourceFilter ? "korea_ntb" : undefined });
+    merged = await buildMergedPage(state.mergedPage, activeIds);
   } catch {
     els.results.innerHTML = `
       <div class="empty-state">
@@ -367,66 +428,45 @@ async function renderResults() {
     return;
   }
 
-  // Filter out any NTB results from fast lane (safety — shouldn't appear, but guard it)
-  const fastResults = (fastData.results || []).filter(r => r.source_id !== "korea_ntb");
-  const fastTotals  = Object.fromEntries(
-    Object.entries(fastData.source_totals || {}).filter(([k]) => k !== "korea_ntb")
-  );
+  const redirectHtml = redirectSources.map(redirectSourceBlock).join("");
+  const gridHtml = renderMergedGrid(merged.items);
+  const paginationHtml = merged.items.length ? renderPaginationBar(state.mergedPage, merged.totalPages) : "";
 
-  // Render fast results + NTB spinner immediately
-  const fastHtml = _renderGroups(fastResults, fastTotals, sourceMap, activeSourceFilter);
-  const ntbSpinner = ntbActive ? `
-    <section class="source-group" data-source-id="korea_ntb">
-      <header class="group-header">
-        <div class="group-source">
-          <span class="source-initial" aria-hidden="true">KN</span>
-          <div><h3>Korea National Technology Bank</h3><p>Republic of Korea</p></div>
-        </div>
-        <div class="group-meta">
-          <span class="result-count">Searching…</span>
-          <span class="status status-metadata">Metadata search</span>
-        </div>
-      </header>
-      <div class="ntb-spinner">Connecting to Korea NTB — may take up to 25 seconds.</div>
-    </section>` : "";
+  els.results.innerHTML = `
+    <div class="merged-grid-wrap">
+      ${gridHtml}
+      ${paginationHtml}
+    </div>
+    ${redirectHtml}`;
 
-  if (!fastHtml && !ntbActive) {
-    els.results.innerHTML = `<div class="empty-state"><h3>No matching technologies found</h3><p>Try a broader keyword or clear one of the filters.</p></div>`;
-    return;
-  }
+  els.summary.textContent = merged.items.length
+    ? `Showing page ${state.mergedPage} of ${merged.totalPages.toLocaleString()}.`
+    : "No results on this page — try adjusting your filters.";
 
-  els.results.innerHTML = fastHtml + ntbSpinner;
-  els.summary.textContent =
-    `${fastResults.length} technolog${fastResults.length === 1 ? "y" : "ies"} loaded` +
-    (ntbActive ? " — Korea NTB loading…" : ".");
+  const includesNTB = activeIds.includes("korea_ntb");
+  updateStatsBar(merged.totalAcrossSources, activeIds.length, includesNTB ? "" : " (+ Korea NTB — checking…)");
 
-  // Slow lane: NTB (12–25s)
-  if (ntbActive) {
-    try {
-      const ntbData = await fetchResults({ source: "korea_ntb" });
-      const ntbResults = (ntbData.results || []).filter(r => r.source_id === "korea_ntb");
-      const ntbTotal   = ntbData.source_totals?.korea_ntb || 0;
-      const ntbSrc = sourceMap["korea_ntb"] || {
-        id: "korea_ntb", name: "Korea National Technology Bank",
-        country: "Republic of Korea", institution: "", status: "Metadata search", url: "https://www.ntb.kr",
-      };
-      const ntbHtml = ntbResults.length
-        ? sourceGroup(ntbSrc, ntbResults, ntbTotal)
-        : `<section class="source-group"><header class="group-header"><div class="group-source">
-            <span class="source-initial">KN</span>
-            <div><h3>Korea National Technology Bank</h3><p>Republic of Korea</p></div>
-           </div><div class="group-meta"><span class="result-count">0 results</span>
-           <span class="status status-metadata">Metadata search</span></div></header></section>`;
-      const ntbSection = document.querySelector('[data-source-id="korea_ntb"]');
-      if (ntbSection) ntbSection.outerHTML = ntbHtml;
-      const total = fastResults.length + ntbResults.length;
-      els.summary.textContent = `${total} technolog${total === 1 ? "y" : "ies"} across ${ntbResults.length ? "2" : "1"} source platform${ntbResults.length ? "s" : ""}.`;
-    } catch {
-      const ntbSection = document.querySelector('[data-source-id="korea_ntb"]');
-      if (ntbSection) ntbSection.querySelector(".ntb-spinner").textContent = "Korea NTB unavailable — try again later.";
-    }
+  // Fetch Korea NTB's live total in the background purely for the header count,
+  // unless it's already part of the merged pool above.
+  if (!includesNTB) {
+    fetchResults({ source: "korea_ntb", page: 1 })
+      .then((data) => {
+        const ntbTotal = data.source_totals?.korea_ntb || 0;
+        if (lastActiveIds !== activeIds) return; // a newer search superseded this one
+        updateStatsBar(merged.totalAcrossSources + ntbTotal, activeIds.length + (ntbTotal ? 1 : 0),
+          ntbTotal ? ` (includes ${ntbTotal.toLocaleString()} from Korea NTB — filter by source to browse them)` : "");
+      })
+      .catch(() => {});
   }
 }
+
+async function changeMergedPage(page) {
+  state.mergedPage = page;
+  await renderResults();
+  document.querySelector("#search-results").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+window.changeMergedPage = changeMergedPage;
 
 // Rich detail info per source — shown on the source cards page
 const SOURCE_DETAIL = {
@@ -560,43 +600,11 @@ async function renderSourcesTable() {
   }
 }
 
-// ── Event listeners (unchanged) ───────────────────────────────────────────────
-
-async function changePage(sourceId, page) {
-  const section = document.querySelector(`[data-source-id="${sourceId}"]`);
-  if (!section) return;
-
-  section.querySelectorAll(".pagination-page-btn").forEach((b) => { b.disabled = true; });
-  const activeBtn = section.querySelector(".pagination-page-btn.active");
-  if (activeBtn) activeBtn.textContent = sourceId === "korea_ntb" ? "Connecting…" : "…";
-  section.querySelector(".technology-list")?.classList.add("page-loading");
-
-  state.pages[sourceId] = page;
-
-  try {
-    const data = await fetchResults({ source: sourceId, page });
-    const sourceMap = Object.fromEntries(sourcesCache.map((s) => [s.id, s]));
-    const source = sourceMap[sourceId];
-    const results = (data.results || []).filter((r) => r.source_id === sourceId);
-    const total = data.source_totals?.[sourceId] || 0;
-    const newHtml = sourceGroup(source, results, total);
-    section.outerHTML = newHtml;
-    setTimeout(() => {
-      document.querySelector(`[data-source-id="${sourceId}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 0);
-  } catch {
-    section.querySelector(".technology-list")?.classList.remove("page-loading");
-    section.querySelectorAll(".pagination-page-btn").forEach((b) => { b.disabled = false; });
-    const label = section.querySelector(".pagination-page-btn.active");
-    if (label) label.textContent = "Failed — retry";
-  }
-}
-
-window.changePage = changePage;
+// ── Event listeners ────────────────────────────────────────────────────────
 
 function runSearch(query) {
   state.query = query.trim();
-  state.pages = {};  // reset pagination on new search
+  state.mergedPage = 1;  // reset pagination on new search
   els.input.value = state.query;
   renderResults();
   document.querySelector("#search-results").scrollIntoView({ behavior: "smooth" });
@@ -620,7 +628,7 @@ document.querySelector("#popular-chips").addEventListener("click", (event) => {
 ].forEach(([select, key]) => {
   select.addEventListener("change", () => {
     state[key] = select.value;
-    state.pages = {};
+    state.mergedPage = 1;
     renderResults();
   });
 });
@@ -631,7 +639,7 @@ els.clear.addEventListener("click", () => {
   state.sector = "";
   state.source = "";
   state.language = "";
-  state.pages = {};
+  state.mergedPage = 1;
   els.input.value = "";
   [els.country, els.sector, els.source, els.language].forEach((select) => {
     select.value = "";
