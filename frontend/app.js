@@ -163,31 +163,15 @@ function technologyCard(technology, source) {
         <span>${technology.language}</span>
         <span>${source.name}</span>
       </div>
-      <div class="card-detail-panel" hidden>
+      <div class="card-detail-panel">
         ${detailRows}
       </div>
       <div class="card-actions">
         ${needsTranslation ? `<button class="card-translate-btn" onclick="translateCard(this)">Translate to English</button>` : ""}
-        <button class="card-details-btn" onclick="toggleDetails(this)">
-          Full record ↓
-        </button>
         ${technology.url ? `<a class="button button-secondary card-external-link" href="${technology.url}" target="_blank" rel="noopener noreferrer">${technology.source_id === "ip_australia" ? "Search patent ↗" : "View on source ↗"}</a>` : ""}
       </div>
     </article>
   `;
-}
-
-function toggleDetails(btn) {
-  const card = btn.closest("[data-tech-id]");
-  const panel = card.querySelector(".card-detail-panel");
-  const hidden = panel.hasAttribute("hidden");
-  if (hidden) {
-    panel.removeAttribute("hidden");
-    btn.textContent = "Hide record ↑";
-  } else {
-    panel.setAttribute("hidden", "");
-    btn.textContent = "Full record ↓";
-  }
 }
 
 async function translateText(text) {
