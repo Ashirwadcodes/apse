@@ -410,6 +410,12 @@
   color: var(--muted);
 }
 
+#results-summary {
+  color: #6b7d91;
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .text-button {
   display: inline-flex;
   align-items: center;
