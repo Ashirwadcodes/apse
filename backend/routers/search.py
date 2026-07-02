@@ -27,13 +27,15 @@ async def search(
     source: Optional[str] = None,
     exclude: Optional[str] = None,
     language: Optional[str] = None,
+    transfer_type: Optional[str] = None,
     page: int = 1,
 ):
     query = q or ""
     filters = {k: v for k, v in {"country": country, "sector": sector, "page": page}.items() if v}
 
     key = _cache_key({"q": query, "country": country, "sector": sector,
-                       "source": source, "language": language, "page": page})
+                       "source": source, "language": language,
+                       "transfer_type": transfer_type, "page": page})
     cached = cache.get(key)
     if cached is not None:
         results, source_totals = cached
@@ -56,6 +58,9 @@ async def search(
     if country:
         countries = {c.strip() for c in country.split(",") if c.strip()}
         active_sources = [s for s in active_sources if s.country in countries or s.country == "Global"]
+    if transfer_type:
+        transfer_types = {t.strip() for t in transfer_type.split(",") if t.strip()}
+        active_sources = [s for s in active_sources if s.transfer_type in transfer_types]
 
     # NTB API (Korean govt) takes 12-18s from Render's US servers — needs extra budget
     SOURCE_TIMEOUTS = {"korea_ntb": 25.0}

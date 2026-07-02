@@ -18,6 +18,7 @@ class IPAustraliaSource(BaseSource):
     status = "Metadata search"
     url = "https://www.ipaustralia.gov.au/patents"
     ttl_seconds = 86400
+    transfer_type = "Patent licensing"
 
     _TOKEN_URL = "https://production.api.ipaustralia.gov.au/public/external-token-api/v1/access_token"
     _SEARCH_URL = "https://production.api.ipaustralia.gov.au/public/australian-patent-search-api/v1/search/quick"
@@ -111,7 +112,7 @@ class IPAustraliaSource(BaseSource):
             country="Australia",
             language="en",
             org_name=org,
-            transfer_type="Patent licence",
+            transfer_type="Patent licensing",
             dev_status=hit.get("applicationStatus") or "",
             reg_date=filing_date,
             keywords=[],

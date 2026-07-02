@@ -5,6 +5,21 @@ let sourcesCache = [];
 
 const GLOBAL_PAGE_SIZE = 20;
 
+const SECTOR_OPTIONS = [
+  { value: "Agriculture", label: "Agriculture & Food" },
+  { value: "Energy", label: "Energy & Environment" },
+  { value: "ICT", label: "Information & Communication Technology" },
+  { value: "Health", label: "Health & Medical" },
+  { value: "Manufacturing", label: "Manufacturing & Materials" },
+  { value: "Water", label: "Water & Sanitation" },
+  { value: "Transport", label: "Transport & Infrastructure" },
+  { value: "Biotechnology", label: "Biotechnology" },
+  { value: "Climate", label: "Climate & Disaster Risk" },
+  { value: "Construction", label: "Construction & Urban Development" },
+  { value: "Chemical", label: "Chemical & Pharmaceutical" },
+  { value: "Electronics", label: "Electronics & Semiconductors" },
+];
+
 const DBTYPE_OPTIONS = [
   { value: "Metadata search", label: "Full technology listings" },
   { value: "Search redirect", label: "External search redirect" },
@@ -16,6 +31,7 @@ const state = {
   sectors: [],
   databaseTypes: [],
   sources: [],
+  transferTypes: [],
   language: "",
   mergedPage: 1,
 };
@@ -30,6 +46,7 @@ const els = {
   sectorMs: document.querySelector("#sector-multiselect"),
   dbtypeMs: document.querySelector("#dbtype-multiselect"),
   sourceMs: document.querySelector("#source-multiselect"),
+  transferTypeMs: document.querySelector("#transfertype-multiselect"),
   language: document.querySelector("#language-filter"),
   clear: document.querySelector("#clear-filters"),
   filters: document.querySelector(".filters"),
@@ -396,6 +413,7 @@ async function fetchResults(overrides = {}) {
   if (state.query)          params.set("q", state.query);
   if (state.countries.length) params.set("country", state.countries.join(","));
   if (state.sectors.length)   params.set("sector", state.sectors.join(","));
+  if (state.transferTypes.length) params.set("transfer_type", state.transferTypes.join(","));
   if (src)            params.set("source", src);
   if (excl)           params.set("exclude", excl);
   if (state.language) params.set("language", state.language);
@@ -432,6 +450,7 @@ function getActiveMergeIds() {
 
   if (state.sources.length) ids = ids.filter((id) => state.sources.includes(id));
   if (state.countries.length) ids = ids.filter((id) => state.countries.includes(sourceMap[id]?.country));
+  if (state.transferTypes.length) ids = ids.filter((id) => state.transferTypes.includes(sourceMap[id]?.transfer_type));
 
   const explicitlyWantsNTB = state.sources.includes("korea_ntb") || state.countries.includes("Republic of Korea");
   if (!explicitlyWantsNTB) ids = ids.filter((id) => id !== "korea_ntb");
@@ -449,7 +468,8 @@ function getRedirectSources() {
   return sourcesCache.filter((s) =>
     s.status === "Search redirect" &&
     (!state.sources.length || state.sources.includes(s.id)) &&
-    (!state.countries.length || state.countries.includes(s.country))
+    (!state.countries.length || state.countries.includes(s.country)) &&
+    (!state.transferTypes.length || state.transferTypes.includes(s.transfer_type))
   );
 }
 
@@ -658,23 +678,23 @@ async function renderSourcesTable() {
   try {
     const [sources, facets] = await Promise.all([
       fetchSources(),
-      fetchFacets().catch(() => ({ sectors: [] })),
+      fetchFacets().catch(() => ({ transfer_types: [] })),
     ]);
     sourcesCache = sources;
 
-    // Populate filters — sector options are scraped live from every source's
-    // actual records rather than a fixed generic bucket list.
+    // Populate filters — Transfer Type options are scraped from what each
+    // registered source actually uses, not a fixed generic list.
     const countryOptions = [...new Set(sources.map((s) => s.country))].sort()
       .map((c) => ({ value: c, label: c }));
     const sourceOptions = sources.map((s) => ({ value: s.id, label: s.name }));
-    const sectorOptions = (facets.sectors || []).map((s) => ({ value: s, label: s }));
+    const transferTypeOptions = (facets.transfer_types || []).map((t) => ({ value: t, label: t }));
 
     initMultiselect(els.countryMs, countryOptions, () => state.countries, (next) => {
       state.countries = next;
       state.mergedPage = 1;
       renderResults();
     });
-    initMultiselect(els.sectorMs, sectorOptions, () => state.sectors, (next) => {
+    initMultiselect(els.sectorMs, SECTOR_OPTIONS, () => state.sectors, (next) => {
       state.sectors = next;
       state.mergedPage = 1;
       renderResults();
@@ -686,6 +706,11 @@ async function renderSourcesTable() {
     });
     initMultiselect(els.sourceMs, sourceOptions, () => state.sources, (next) => {
       state.sources = next;
+      state.mergedPage = 1;
+      renderResults();
+    });
+    initMultiselect(els.transferTypeMs, transferTypeOptions, () => state.transferTypes, (next) => {
+      state.transferTypes = next;
       state.mergedPage = 1;
       renderResults();
     });
@@ -737,11 +762,12 @@ els.clear.addEventListener("click", () => {
   state.sectors = [];
   state.databaseTypes = [];
   state.sources = [];
+  state.transferTypes = [];
   state.language = "";
   state.mergedPage = 1;
   els.input.value = "";
   els.language.value = "";
-  [els.countryMs, els.sectorMs, els.dbtypeMs, els.sourceMs].forEach((c) => c._render?.());
+  [els.countryMs, els.sectorMs, els.dbtypeMs, els.sourceMs, els.transferTypeMs].forEach((c) => c._render?.());
   renderResults();
 });
 

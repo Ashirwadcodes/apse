@@ -19,6 +19,7 @@ class JSTJapanSource(BaseSource):
     status = "Metadata search"
     url = "https://www.jst.go.jp/chizai/en/patent_en.html"
     ttl_seconds = 86400
+    transfer_type = "Patent licensing"
 
     def __init__(self):
         self._records: list[dict] = []

@@ -19,6 +19,7 @@ class Tech2BizSource(BaseSource):
     status = "Metadata search"
     url = "https://www.tech2biz.net/content/inventor"
     ttl_seconds = 86400
+    transfer_type = "Technology transfer / licensing"
 
     def __init__(self):
         self._records: list[dict] = []

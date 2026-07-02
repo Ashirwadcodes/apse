@@ -19,6 +19,7 @@ class CSIRIndiaSource(BaseSource):
     status = "Metadata search"
     url = "https://techindiacsir.anusandhan.net/online/Control.do?_tech="
     ttl_seconds = 86400
+    transfer_type = "Technology transfer / licensing"
 
     def __init__(self):
         self._records: list[dict] = []

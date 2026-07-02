@@ -30,3 +30,4 @@ class Source(BaseModel):
     status: str
     url: str
     ttl_seconds: int
+    transfer_type: str = ""

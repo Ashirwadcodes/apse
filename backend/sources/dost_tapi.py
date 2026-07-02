@@ -19,6 +19,7 @@ class DOSTTAPISource(BaseSource):
     status = "Metadata search"
     url = "https://tapitechtransfer.dost.gov.ph/technologies"
     ttl_seconds = 86400
+    transfer_type = "Technology transfer / licensing"
 
     def __init__(self):
         self._records: list[dict] = []

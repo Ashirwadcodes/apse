@@ -10,6 +10,10 @@ class BaseSource(ABC):
     status: str
     url: str
     ttl_seconds: int = 86400
+    # Constant across all records for this source, used by the Transfer Type
+    # filter. Left blank where it genuinely varies per record (e.g. Korea NTB)
+    # or doesn't apply (e.g. WIPO's external redirect).
+    transfer_type: str = ""
 
     @abstractmethod
     async def search(self, query: str, filters: dict) -> tuple[list[Technology], int]:
@@ -28,4 +32,5 @@ class BaseSource(ABC):
             status=self.status,
             url=self.url,
             ttl_seconds=self.ttl_seconds,
+            transfer_type=self.transfer_type,
         )
