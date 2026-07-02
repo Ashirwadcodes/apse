@@ -164,6 +164,48 @@
   display: none;
 }
 
+/* Google Translate widget in the nav — tame the default styling */
+.nav-translate {
+  display: flex;
+  align-items: center;
+  padding-left: 16px;
+}
+
+.nav-translate .goog-te-gadget-simple {
+  display: inline-flex;
+  align-items: center;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--white);
+  font-family: var(--font-body);
+  font-size: 12px;
+}
+
+.nav-translate .goog-te-gadget-simple:hover {
+  border-color: var(--blue-600);
+}
+
+.nav-translate .goog-te-gadget-simple a,
+.nav-translate .goog-te-gadget-simple span {
+  color: #4c5e70;
+  text-decoration: none;
+}
+
+.nav-translate .goog-te-gadget-icon {
+  display: none;
+}
+
+/* Suppress Google's injected top banner frame and body offset */
+.goog-te-banner-frame {
+  display: none !important;
+}
+
+body {
+  top: 0 !important;
+}
+
 .hero {
   position: relative;
   overflow: hidden;

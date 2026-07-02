@@ -203,6 +203,10 @@ async function translateCard(btn) {
     for (const tag of tags) {
       translateText(tag.textContent).then((t) => { tag.textContent = t; });
     }
+    const sectorEl = card.querySelector(".card-sector");
+    if (sectorEl) {
+      translateText(sectorEl.textContent).then((t) => { sectorEl.textContent = t; });
+    }
     card.querySelectorAll(".detail-translatable").forEach((el) => {
       translateText(el.textContent).then((t) => { el.textContent = t; });
     });

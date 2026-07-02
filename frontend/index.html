@@ -41,6 +41,7 @@
               <span class="nav-label-full">About the Gateway</span>
               <span class="nav-label-short">About</span>
             </a>
+            <div class="nav-translate" id="google_translate_element"></div>
           </div>
         </div>
       </nav>
@@ -199,5 +200,20 @@
     </div>
 
     <script src="app.js" defer></script>
+    <script>
+      function googleTranslateElementInit() {
+        new google.translate.TranslateElement(
+          {
+            pageLanguage: "en",
+            includedLanguages:
+              "en,ko,ja,zh-CN,hi,th,vi,ms,id,bn,si,ne,ru,tl,km,my,lo,mn,ur,ta,fr",
+            layout: google.translate.TranslateElement.InlineLayout.SIMPLE,
+            autoDisplay: false,
+          },
+          "google_translate_element"
+        );
+      }
+    </script>
+    <script src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit" defer></script>
   </body>
 </html>
