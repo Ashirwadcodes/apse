@@ -438,10 +438,12 @@ function updateStatsBar(totalTechs, totalSources) {
 // unfiltered search against it takes up to 25s, which would stall every
 // global page load. It's included automatically when explicitly filtered
 // (by source or by country) and always counted toward the header total.
-function getActiveMergeIds() {
+// The true set of metadata-search sources matching the active filters,
+// excluding only redirect-only sources (e.g. WIPO) — used for the header's
+// "N source platforms" count so it reflects real data sources, not the
+// performance-trimmed subset actually fetched for the round-robin grid.
+function getFilterableSourceIds() {
   const sourceMap = Object.fromEntries(sourcesCache.map((s) => [s.id, s]));
-  // Database type filter narrows to specific status values; if the user has
-  // unchecked "Full technology listings" entirely, the merged grid is empty.
   if (state.databaseTypes.length && !state.databaseTypes.includes("Metadata search")) return [];
 
   let ids = sourcesCache
@@ -452,6 +454,14 @@ function getActiveMergeIds() {
   if (state.countries.length) ids = ids.filter((id) => state.countries.includes(sourceMap[id]?.country));
   if (state.transferTypes.length) ids = ids.filter((id) => state.transferTypes.includes(sourceMap[id]?.transfer_type));
 
+  return ids;
+}
+
+function getActiveMergeIds() {
+  let ids = getFilterableSourceIds();
+
+  // Korea NTB's external API takes up to 25s — excluded from the round-robin
+  // pool unless explicitly requested, so it doesn't stall every page load.
   const explicitlyWantsNTB = state.sources.includes("korea_ntb") || state.countries.includes("Republic of Korea");
   if (!explicitlyWantsNTB) ids = ids.filter((id) => id !== "korea_ntb");
 
@@ -498,6 +508,7 @@ async function renderResults() {
   els.results.innerHTML = `<div class="empty-state"><p>Loading results…</p></div>`;
   updateStatsBar(0, 0);
 
+  const filterableIds = getFilterableSourceIds();
   const activeIds = getActiveMergeIds();
   const redirectSources = getRedirectSources();
   lastActiveIds = activeIds;
@@ -534,18 +545,19 @@ async function renderResults() {
     : "No results on this page — try adjusting your filters.";
 
   const includesNTB = activeIds.includes("korea_ntb");
-  updateStatsBar(merged.totalAcrossSources, activeIds.length);
+  updateStatsBar(merged.totalAcrossSources, filterableIds.length);
 
-  // Fetch Korea NTB's live total in the background purely for the header count,
-  // unless it's already part of the merged pool above, or the user has
-  // explicitly narrowed to specific sources/countries that exclude it.
-  const shouldCheckNTBSeparately = !includesNTB && !state.sources.length && !state.countries.length;
+  // Fetch Korea NTB's live total in the background purely for the tech-count
+  // total, when it matches the active filters but was trimmed from the
+  // round-robin pool for performance. filterableIds.length already counts it
+  // toward "N source platforms" above — this only adds its record count.
+  const shouldCheckNTBSeparately = !includesNTB && filterableIds.includes("korea_ntb");
   if (shouldCheckNTBSeparately) {
     fetchResults({ source: "korea_ntb", page: 1 })
       .then((data) => {
         const ntbTotal = data.source_totals?.korea_ntb || 0;
         if (lastActiveIds !== activeIds) return; // a newer search superseded this one
-        updateStatsBar(merged.totalAcrossSources + ntbTotal, activeIds.length + (ntbTotal ? 1 : 0));
+        updateStatsBar(merged.totalAcrossSources + ntbTotal, filterableIds.length);
       })
       .catch(() => {});
   }
