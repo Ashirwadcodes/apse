@@ -22,6 +22,8 @@ arrangements may change following formal review.
 - Merges results using round-robin pagination so one large source does not
   dominate the first page.
 - Applies country, sector, database-type, and source filters in real time.
+- Provides four editorially curated featured technology themes as optional
+  search shortcuts while keeping `All technologies` as the default scope.
 - Uses query-aware facet counts for locally indexed catalogues.
 - Links each result to its original source record.
 - Falls back safely when an optional live source or semantic-search service is
@@ -34,6 +36,28 @@ supports all 40 ISO ICS top-level fields. Provider categories are preserved in
 Numeric ICS codes are used internally but the interface displays sector names.
 Uncertain or unmapped records remain searchable as `Other / Unclassified`.
 This is an ISO ICS-based vocabulary, not an ISO certification.
+
+### Featured technology themes
+
+The search interface highlights four cross-sector themes:
+
+- Energy transition and renewable technologies
+- Climate-resilient infrastructure in cities
+- Digital and Fourth Industrial Revolution technologies
+- Pollution prevention and control technologies
+
+These themes are not additional ISO sectors. Each theme uses a reviewable,
+deterministic combination of ISO sector matches and terms found in titles,
+provider keywords or categories, and descriptions. Title and provider metadata
+receive more weight than a description-only mention, and a broad sector match
+alone is not enough to include a record. The rules are defined in
+`backend/search/focus_themes.py`.
+
+Focus-theme results and facet counts include only catalogues whose complete
+metadata can be evaluated locally or from a bounded cached catalogue. Live APIs
+that expose only a partial upstream result page, including Korea NTB, remain
+available through normal search and source filters but are excluded from focus
+themes so totals and pagination stay accurate.
 
 ## Data sources
 
@@ -81,6 +105,7 @@ backend/
   taxonomy/               ISO ICS and provider-to-ICS mappings
   analytics/              Allow-listed aggregate topic counts
   search/                  Optional semantic and related-term search
+    focus_themes.py        Curated cross-sector featured-theme rules
   cache/                   SQLite-backed ephemeral caches
 
 scripts/
@@ -99,10 +124,10 @@ The backend exposes:
 | Method | Endpoint | Purpose |
 |---|---|---|
 | `GET` | `/health` | Service health check |
-| `GET` | `/api/v1/search` | Federated metadata search |
+| `GET` | `/api/v1/search` | Federated metadata search; accepts an optional `focus` theme ID |
 | `GET` | `/api/v1/sources` | Registered source metadata |
 | `GET` | `/api/v1/facets` | Query- and filter-aware facets |
-| `GET` | `/api/v1/popular-searches` | Ranked allow-listed topics for the previous 30 days |
+| `GET` | `/api/v1/popular-searches` | Ranked allow-listed topics for the previous 30 days; retained for analytics but not currently displayed |
 | `POST` | `/api/v1/search-events` | Increment an allow-listed aggregate topic count |
 
 Interactive FastAPI documentation is available at `/docs` on a running backend.

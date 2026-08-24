@@ -47,6 +47,7 @@ class Source(BaseModel):
     ttl_seconds: int
     transfer_type: str = ""
     sector_filter_supported: bool = False
+    focus_filter_supported: bool = False
     multi_country: bool = False
     access_method: str = ""
     last_indexed: str = ""

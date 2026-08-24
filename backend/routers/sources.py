@@ -1,10 +1,15 @@
 import asyncio
 from typing import Optional
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 from backend.sources.registry import SOURCES
 from backend.models.technology import Source
 from backend.search.semantic import semantic_search
+from backend.search.focus_themes import (
+    focus_theme_options,
+    get_focus_theme,
+    score_focus_record,
+)
 from backend.taxonomy.iso_ics import (
     ICS_TOP_LEVEL_LABELS,
     OTHER_SECTOR_CODE,
@@ -30,6 +35,7 @@ async def get_facets(
     sector: Optional[str] = Query(None, max_length=300),
     source: Optional[str] = Query(None, max_length=300),
     database_type: Optional[str] = Query(None, max_length=100),
+    focus: Optional[str] = Query(None, max_length=80),
 ):
     """Query-aware facets derived only from locally indexed catalogues.
 
@@ -66,6 +72,10 @@ async def get_facets(
     selected_sources = _split_values(source)
     selected_database_types = _split_values(database_type)
     metadata_enabled = not selected_database_types or "Metadata search" in selected_database_types
+    focus_value = focus if isinstance(focus, str) else None
+    focus_theme = get_focus_theme(focus_value)
+    if focus_value and not focus_theme:
+        raise HTTPException(status_code=400, detail="Unknown focus theme")
 
     sector_counts = {code: 0 for code in ICS_TOP_LEVEL_LABELS}
     sector_counts[OTHER_SECTOR_CODE] = 0
@@ -88,6 +98,8 @@ async def get_facets(
                 continue
             if not facet_available[catalogue.id]:
                 continue
+            if focus_theme and not catalogue.focus_filter_supported:
+                continue
             source_matches = not selected_sources or catalogue.id in selected_sources
 
             for record in catalogue.facet_records():
@@ -97,6 +109,12 @@ async def get_facets(
                 )
                 for record_country in record_countries:
                     country_counts.setdefault(record_country, 0)
+                if focus_theme:
+                    focus_match, _ = score_focus_record(
+                        record["record"], record["classification"], focus_theme
+                    )
+                    if not focus_match:
+                        continue
                 if query:
                     if semantic_context and semantic_context.available:
                         is_match, _, _ = semantic_search.score_record(
@@ -158,6 +176,7 @@ async def get_facets(
         "countries": countries,
         "sources": sources,
         "transfer_types": transfer_types,
+        "focus_themes": focus_theme_options(),
     }
 
 

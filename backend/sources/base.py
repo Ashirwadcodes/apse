@@ -17,6 +17,9 @@ class BaseSource(ABC):
     # True only when the source can return complete, correctly paginated
     # results for an ISO ICS sector filter.
     sector_filter_supported: bool = False
+    # True only when every record can be evaluated against the Gateway's
+    # curated focus-theme rules without relying on a partial upstream page.
+    focus_filter_supported: bool = False
     # True when this source has a local index that can be counted without
     # making an upstream API request.
     facet_count_supported: bool = False
@@ -48,6 +51,7 @@ class BaseSource(ABC):
             ttl_seconds=self.ttl_seconds,
             transfer_type=self.transfer_type,
             sector_filter_supported=self.sector_filter_supported,
+            focus_filter_supported=self.focus_filter_supported,
             multi_country=self.multi_country,
             access_method=self.access_method,
             last_indexed=self.last_indexed,

@@ -44,16 +44,16 @@
       href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&family=Roboto:wght@400;500;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=23" />
+    <link rel="stylesheet" href="styles.css?v=24" />
     <link
       id="apctt-theme"
       rel="stylesheet"
-      href="apctt-theme.css?v=7"
+      href="apctt-theme.css?v=8"
     />
     <link
       id="energy-concept"
       rel="stylesheet"
-      href="energy-concept.css?v=3"
+      href="energy-concept.css?v=4"
       disabled
     />
     <script src="theme-init.js?v=2"></script>
@@ -121,15 +121,17 @@
             </button>
           </form>
 
-          <div class="popular-searches">
-            <span id="popular-searches-label">Suggested searches</span>
-            <div class="chip-list" id="popular-chips">
-              <button type="button" data-keyword="Climate resilience">Climate resilience</button>
-              <button type="button" data-keyword="Renewable energy">Renewable energy</button>
-              <button type="button" data-keyword="Artificial intelligence">AI</button>
-              <button type="button" data-keyword="Agriculture">Agriculture</button>
-              <button type="button" data-keyword="Water treatment">Water</button>
-              <button type="button" data-keyword="Health technology">Health technology</button>
+          <div class="focus-theme-searches">
+            <div class="focus-theme-heading">
+              <span>Featured technology themes</span>
+              <small id="focus-theme-note">Choose a theme or continue searching across all technology areas.</small>
+            </div>
+            <div class="focus-theme-chips" id="focus-theme-chips" role="group" aria-label="Featured technology themes">
+              <button class="active" type="button" data-focus="" aria-pressed="true">All technologies</button>
+              <button type="button" data-focus="energy-transition" aria-pressed="false"><i aria-hidden="true"></i>Energy transition</button>
+              <button type="button" data-focus="climate-resilient-cities" aria-pressed="false"><i aria-hidden="true"></i>Climate-resilient cities</button>
+              <button type="button" data-focus="digital-4ir" aria-pressed="false"><i aria-hidden="true"></i>Digital &amp; 4IR</button>
+              <button type="button" data-focus="pollution-control" aria-pressed="false"><i aria-hidden="true"></i>Pollution control</button>
             </div>
           </div>
 
@@ -417,6 +419,6 @@
     <script src="merged-pagination.js?v=1" defer></script>
     <script src="security-utils.js?v=1" defer></script>
     <script src="analytics.js?v=2" defer></script>
-    <script src="app.js?v=32" defer></script>
+    <script src="app.js?v=33" defer></script>
   </body>
 </html>

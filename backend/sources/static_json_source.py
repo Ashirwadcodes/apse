@@ -11,6 +11,7 @@ from backend.search.semantic import (
     searchable_text,
     semantic_search,
 )
+from backend.search.focus_themes import FocusTheme, score_focus_record
 from backend.taxonomy.iso_ics import (
     ICS_LABELS,
     ICS_TOP_LEVEL_LABELS,
@@ -42,6 +43,7 @@ class StaticJSONSource(BaseSource):
     org_default: str = ""
     encoding: str = "utf-8-sig"
     sector_filter_supported = True
+    focus_filter_supported = True
     facet_count_supported = True
     sector_provenance: str = "source"
     access_method = "Reviewed snapshot"
@@ -182,13 +184,23 @@ class StaticJSONSource(BaseSource):
         if not isinstance(semantic_context, SemanticQueryContext):
             semantic_context = SemanticQueryContext(query=q)
         sector_filters = [s.strip() for s in (filters.get("sector") or "").split(",") if s.strip()]
+        focus_theme = filters.get("_focus_theme")
+        if not isinstance(focus_theme, FocusTheme):
+            focus_theme = None
 
-        matched: list[tuple[dict, float]] = []
+        matched: list[tuple[dict, float, int]] = []
         semantic_evidence: list[tuple[dict, float]] = []
         for rec in self._records:
             classification = rec["_sector_classification"]
             if not matches_sector_filter(classification, sector_filters):
                 continue
+            focus_score = 0
+            if focus_theme:
+                focus_match, focus_score = score_focus_record(
+                    rec, classification, focus_theme
+                )
+                if not focus_match:
+                    continue
             if q:
                 is_match, score, semantic_score = semantic_search.score_record(
                     rec,
@@ -197,13 +209,22 @@ class StaticJSONSource(BaseSource):
                 )
                 if not is_match:
                     continue
-                matched.append((rec, score))
+                matched.append((rec, score, focus_score))
                 if semantic_score:
                     semantic_evidence.append((rec, semantic_score))
             else:
-                matched.append((rec, 0.0))
+                matched.append((rec, 0.0, focus_score))
 
-        if q and semantic_context.available:
+        if focus_theme:
+            matched.sort(
+                key=lambda item: (
+                    item[2],
+                    item[1],
+                    item[0].get("title", "").lower(),
+                ),
+                reverse=True,
+            )
+        elif q and semantic_context.available:
             matched.sort(
                 key=lambda item: (
                     item[1],
@@ -215,7 +236,7 @@ class StaticJSONSource(BaseSource):
 
         total = len(matched)
         page_slice = matched[(page - 1) * page_size: page * page_size]
-        return [self._to_technology(record) for record, _ in page_slice], total
+        return [self._to_technology(record) for record, _, _ in page_slice], total
 
     def sector_facets(self) -> dict[str, int]:
         self._load()

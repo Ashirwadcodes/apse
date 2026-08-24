@@ -4,18 +4,19 @@ import json
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 from backend.sources.registry import SOURCES
 from backend.models.response import SearchResponse
 from backend.cache.ttl_cache import cache
 from backend.config import settings
 from backend.search.semantic import semantic_search
+from backend.search.focus_themes import get_focus_theme
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 # Bump whenever the registered source set or response semantics change so
 # searches cached before a catalogue addition cannot hide the new records.
-SEARCH_CACHE_SCHEMA_VERSION = 9
+SEARCH_CACHE_SCHEMA_VERSION = 10
 
 
 def _cache_key(params: dict) -> str:
@@ -35,14 +36,21 @@ async def search(
     exclude: Optional[str] = Query(None, max_length=300),
     language: Optional[str] = Query(None, max_length=50),
     transfer_type: Optional[str] = Query(None, max_length=300),
+    focus: Optional[str] = Query(None, max_length=80),
     page: int = Query(1, ge=1, le=100_000),
 ):
     query = q or ""
     filters = {k: v for k, v in {"country": country, "sector": sector, "page": page}.items() if v}
+    focus_value = focus if isinstance(focus, str) else None
+    focus_theme = get_focus_theme(focus_value)
+    if focus_value and not focus_theme:
+        raise HTTPException(status_code=400, detail="Unknown focus theme")
+    if focus_theme:
+        filters["_focus_theme"] = focus_theme
 
     key = _cache_key({"q": query, "country": country, "sector": sector,
                        "source": source, "exclude": exclude, "language": language,
-                       "transfer_type": transfer_type, "page": page})
+                       "transfer_type": transfer_type, "focus": focus_value, "page": page})
     cached = cache.get(key)
     if cached is not None:
         results, source_totals, failed_sources = cached
@@ -75,6 +83,8 @@ async def search(
         # values have a verified mapping to ISO ICS. This keeps totals and
         # pagination truthful instead of filtering only the current API page.
         active_sources = [s for s in active_sources if s.sector_filter_supported]
+    if focus_theme:
+        active_sources = [s for s in active_sources if s.focus_filter_supported]
     if transfer_type:
         transfer_types = {t.strip() for t in transfer_type.split(",") if t.strip()}
         active_sources = [s for s in active_sources if s.transfer_type in transfer_types]

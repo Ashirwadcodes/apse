@@ -117,20 +117,26 @@ html[data-concept="network"] .search-button:hover {
   background: #089ad6;
 }
 
-html[data-concept="network"] .popular-searches {
+html[data-concept="network"] .focus-theme-searches {
   position: relative;
   z-index: 2;
   width: 64%;
   color: rgba(255, 255, 255, 0.62);
 }
 
-html[data-concept="network"] .chip-list button {
+html[data-concept="network"] .focus-theme-heading > span,
+html[data-concept="network"] .focus-theme-heading small {
+  color: #d7f6ff;
+}
+
+html[data-concept="network"] .focus-theme-chips button {
   border-color: rgba(133, 224, 255, 0.28);
   color: #d7f6ff;
   background: rgba(255, 255, 255, 0.07);
 }
 
-html[data-concept="network"] .chip-list button:hover {
+html[data-concept="network"] .focus-theme-chips button:hover,
+html[data-concept="network"] .focus-theme-chips button.active {
   border-color: var(--energy-cyan);
   color: #fff;
   background: rgba(53, 200, 255, 0.16);
@@ -265,7 +271,7 @@ html[data-concept="network"] .about-section {
   html[data-concept="network"] .hero h1,
   html[data-concept="network"] .hero-content > p,
   html[data-concept="network"] .search-form,
-  html[data-concept="network"] .popular-searches {
+  html[data-concept="network"] .focus-theme-searches {
     width: 100%;
     max-width: 720px;
   }

@@ -397,42 +397,74 @@
   stroke-width: 2;
 }
 
-.popular-searches {
+.focus-theme-searches {
+  width: min(850px, 100%);
+  margin: 20px auto 0;
+  color: #4f687f;
+  text-align: left;
+}
+
+.focus-theme-heading {
   display: flex;
-  align-items: flex-start;
-  flex-direction: column;
-  justify-content: center;
-  gap: 10px;
-  margin-top: 25px;
-  color: #6b7d91;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin-bottom: 9px;
+}
+
+.focus-theme-heading > span {
+  color: #183f62;
   font-size: 13px;
+  font-weight: 700;
 }
 
-#popular-searches-label {
-  white-space: nowrap;
+.focus-theme-heading small {
+  color: #6b7d91;
+  font-size: 12px;
 }
 
-.chip-list {
+.focus-theme-chips {
   display: flex;
   flex-wrap: wrap;
-  justify-content: flex-start;
   gap: 8px;
 }
 
-.chip-list button {
+.focus-theme-chips button {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  gap: 7px;
   padding: 7px 12px;
-  border: 1px solid #c5d7e6;
-  border-radius: 3px;
-  color: #395c7f;
-  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid #b8cedd;
+  border-radius: 999px;
+  color: #315875;
+  background: rgba(255, 255, 255, 0.82);
+  font-family: var(--font-body);
   font-size: 12px;
+  font-weight: 600;
   cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
-.chip-list button:hover {
-  border-color: var(--blue-600);
+.focus-theme-chips button i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.65;
+}
+
+.focus-theme-chips button:hover,
+.focus-theme-chips button:focus-visible {
+  border-color: var(--blue-700);
   color: var(--blue-800);
   background: var(--white);
+}
+
+.focus-theme-chips button.active {
+  border-color: var(--blue-700);
+  color: var(--white);
+  background: var(--blue-700);
 }
 
 .search-section {
@@ -2389,13 +2421,13 @@ body.source-dialog-open {
     min-height: 48px;
   }
 
-  .popular-searches {
+  .focus-theme-heading {
     align-items: flex-start;
     flex-direction: column;
   }
 
-  .chip-list {
-    justify-content: flex-start;
+  .focus-theme-chips button {
+    min-height: 38px;
   }
 
   .search-section,
@@ -2477,6 +2509,18 @@ body.source-dialog-open {
     justify-content: center;
   }
 
+}
+
+@media (max-width: 500px) {
+  .focus-theme-chips button {
+    flex: 1 1 calc(50% - 8px);
+    justify-content: center;
+    text-align: center;
+  }
+
+  .focus-theme-chips button:first-child {
+    flex-basis: 100%;
+  }
 }
 
 @media (max-width: 460px) {

@@ -14,6 +14,7 @@ def facets(**overrides):
         "sector": None,
         "source": None,
         "database_type": None,
+        "focus": None,
     }
     params.update(overrides)
     # Facet tests verify deterministic keyword filtering. Do not let a local
@@ -27,6 +28,47 @@ def facets(**overrides):
 
 
 class QueryAwareFacetTests(unittest.TestCase):
+    def test_focus_theme_counts_use_curated_sector_and_term_rules(self):
+        class FakeCatalogue:
+            id = "fake"
+            name = "Fake catalogue"
+            country = "Testland"
+            status = "Metadata search"
+            transfer_type = ""
+            facet_count_supported = True
+            focus_filter_supported = True
+            requires_facet_preparation = False
+            multi_country = False
+
+            def facet_records(self):
+                return (
+                    {
+                        "record": {
+                            "title": "Solar cold storage",
+                            "summary": "Off-grid refrigeration",
+                            "keywords": ["solar"],
+                        },
+                        "searchable": "solar cold storage off grid refrigeration",
+                        "classification": classify_sector("Energy"),
+                    },
+                    {
+                        "record": {
+                            "title": "Conventional electrical connector",
+                            "summary": "Industrial component",
+                            "keywords": [],
+                        },
+                        "searchable": "conventional electrical connector",
+                        "classification": classify_sector("Electrical engineering"),
+                    },
+                )
+
+        with patch("backend.routers.sources.SOURCES", [FakeCatalogue()]):
+            result = facets(focus="energy-transition")
+
+        self.assertEqual(result["countries"], [{"value": "Testland", "label": "Testland", "count": 1}])
+        self.assertEqual(result["sources"][0]["count"], 1)
+        self.assertEqual(len(result["focus_themes"]), 4)
+
     def test_sector_facets_roll_up_to_top_level_and_include_other(self):
         class FakeCatalogue:
             id = "fake"

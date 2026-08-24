@@ -172,19 +172,13 @@
   font-weight: 700;
 }
 
-.popular-searches {
-  justify-content: flex-start;
-  margin-top: 20px;
-  color: #5b6c79;
-  font-size: 13px;
+.focus-theme-searches {
+  width: min(820px, 100%);
+  margin: 18px 0 0;
 }
 
-.chip-list button {
-  padding: 6px 10px;
-  border-color: #d7e4eb;
-  border-radius: 2px;
-  color: #0b70b7;
-  background: #fff;
+.focus-theme-chips button {
+  border-radius: 16px;
 }
 
 .search-section {

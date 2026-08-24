@@ -22,6 +22,13 @@ const DBTYPE_OPTIONS = [
   { value: "Search redirect", label: "External search redirect" },
 ];
 
+const FOCUS_THEME_LABELS = {
+  "energy-transition": "Energy transition",
+  "climate-resilient-cities": "Climate-resilient cities",
+  "digital-4ir": "Digital & 4IR",
+  "pollution-control": "Pollution control",
+};
+
 // Only these editorially approved topics are eligible for aggregate counting.
 // Arbitrary text entered by users is never sent to the analytics endpoint.
 const TRACKED_TOPIC_ALIASES = new Set([
@@ -45,6 +52,7 @@ const state = {
   sectors: [],
   databaseTypes: [],
   sources: [],
+  focusTheme: "",
   resultsView: "list",
   mergedPage: 1,
 };
@@ -512,6 +520,7 @@ function sourcePageCacheKey(sourceId, backendPage) {
     query: state.query,
     countries: state.countries,
     sectors: state.sectors,
+    focusTheme: state.focusTheme,
   });
 }
 
@@ -621,30 +630,6 @@ async function fetchSources() {
   return res.json();
 }
 
-async function loadPopularSearches() {
-  const container = document.querySelector("#popular-chips");
-  const label = document.querySelector("#popular-searches-label");
-  if (!container) return;
-  try {
-    const res = await fetch(`${API_BASE}/popular-searches`);
-    if (!res.ok) throw new Error("Popular searches fetch failed");
-    const data = await res.json();
-    const topics = Array.isArray(data.topics) ? data.topics.slice(0, 6) : [];
-    if (!topics.length) return;
-    container.innerHTML = topics.map((topic) => `
-      <button type="button" data-keyword="${escapeHtml(topic.query)}">${escapeHtml(topic.label)}</button>
-    `).join("");
-    const hasRecentActivity = topics.some((topic) => Number(topic.count) > 0);
-    if (label) {
-      label.textContent = hasRecentActivity
-        ? `Popular searches · last ${Number(data.window_days) || 30} days`
-        : "Suggested searches";
-    }
-  } catch {
-    // Keep the editorial fallback already present in the HTML.
-  }
-}
-
 function recordTrackedTopicSearch(query) {
   const normalized = normalizeDisplayText(query).trim().toLowerCase().replace(/\s+/g, " ");
   if (!TRACKED_TOPIC_ALIASES.has(normalized)) return;
@@ -662,6 +647,7 @@ async function fetchFacets({ signal } = {}) {
   if (state.sectors.length) params.set("sector", state.sectors.join(","));
   if (state.sources.length) params.set("source", state.sources.join(","));
   if (state.databaseTypes.length) params.set("database_type", state.databaseTypes.join(","));
+  if (state.focusTheme) params.set("focus", state.focusTheme);
   const res = await fetch(`${API_BASE}/facets?${params}`, { signal });
   if (!res.ok) throw new Error("Facets fetch failed");
   return res.json();
@@ -735,6 +721,7 @@ async function fetchResults(overrides = {}, signal) {
   if (state.query)          params.set("q", state.query);
   if (state.countries.length) params.set("country", state.countries.join(","));
   if (state.sectors.length)   params.set("sector", state.sectors.join(","));
+  if (state.focusTheme)       params.set("focus", state.focusTheme);
   if (src)            params.set("source", src);
   if (excl)           params.set("exclude", excl);
   if (page > 1)       params.set("page", page);
@@ -757,6 +744,7 @@ function updateStatsBar(totalTechs, totalSources, totalCountries) {
 function hasActiveSearch() {
   return Boolean(
     state.query ||
+    state.focusTheme ||
     state.countries.length ||
     state.sectors.length ||
     state.databaseTypes.length ||
@@ -766,7 +754,8 @@ function hasActiveSearch() {
 
 function syncSearchMode() {
   els.app?.classList.toggle("has-active-search", hasActiveSearch());
-  const activeFilterCount = FILTER_STATE_KEYS.reduce((total, key) => total + state[key].length, 0);
+  const activeFilterCount = FILTER_STATE_KEYS.reduce((total, key) => total + state[key].length, 0)
+    + (state.focusTheme ? 1 : 0);
   if (els.mobileFilterCount) {
     els.mobileFilterCount.textContent = activeFilterCount;
     els.mobileFilterCount.hidden = activeFilterCount === 0;
@@ -779,6 +768,11 @@ function renderActiveFilters() {
   const sectorMap = Object.fromEntries(sectorOptionsCache.map((sector) => [sector.value, sector.label]));
   const items = [
     ...(state.query ? [{ type: "query", value: state.query, label: `Keyword: ${state.query}` }] : []),
+    ...(state.focusTheme ? [{
+      type: "focusTheme",
+      value: state.focusTheme,
+      label: `Featured theme: ${FOCUS_THEME_LABELS[state.focusTheme] || state.focusTheme}`,
+    }] : []),
     ...state.countries.map((value) => ({ type: "countries", value, label: value })),
     ...state.sectors.map((value) => ({ type: "sectors", value, label: sectorMap[value] || value })),
     ...state.databaseTypes.map((value) => ({ type: "databaseTypes", value, label: value })),
@@ -792,6 +786,22 @@ function renderActiveFilters() {
     </button>
   `).join("");
   els.activeFilters.hidden = items.length === 0;
+}
+
+function syncFocusThemeChips() {
+  const container = document.querySelector("#focus-theme-chips");
+  const note = document.querySelector("#focus-theme-note");
+  if (!container) return;
+  container.querySelectorAll("[data-focus]").forEach((button) => {
+    const active = button.dataset.focus === state.focusTheme;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+  if (note) {
+    note.textContent = state.focusTheme
+      ? "Curated results based on related sectors and technology terms. Clear the theme to search every catalogue."
+      : "Choose a theme or continue searching across all technology areas.";
+  }
 }
 
 // Clickable source chips shown under the stats row — a visual alternative to
@@ -848,6 +858,7 @@ function getFilterableSourceIds() {
     );
   }
   if (state.sectors.length) ids = ids.filter((id) => sourceMap[id]?.sector_filter_supported);
+  if (state.focusTheme) ids = ids.filter((id) => sourceMap[id]?.focus_filter_supported);
 
   return ids;
 }
@@ -869,7 +880,8 @@ function getRedirectSources() {
     s.status === "Search redirect" &&
     (!state.sources.length || state.sources.includes(s.id)) &&
     (!state.countries.length || state.countries.includes(s.country)) &&
-    !state.sectors.length
+    !state.sectors.length &&
+    !state.focusTheme
   );
 }
 
@@ -903,10 +915,14 @@ async function renderResults() {
   const requestController = new AbortController();
   activeResultsController = requestController;
   syncSearchMode();
+  syncFocusThemeChips();
   renderActiveFilters();
   refreshFacetCounts(token).catch(() => {});
 
-  els.title.textContent = state.query ? `Results for "${state.query}"` : "Technology search results";
+  const focusLabel = FOCUS_THEME_LABELS[state.focusTheme];
+  els.title.textContent = state.query
+    ? `Results for "${state.query}"`
+    : focusLabel || "Technology search results";
   els.summary.textContent = "Searching across source platforms…";
   els.results.innerHTML = `<div class="empty-state"><p>Loading results…</p></div>`;
   updateStatsBar(0, 0, 0);
@@ -987,7 +1003,9 @@ async function renderResults() {
   if (!isBlankState) {
     els.title.textContent = state.query
       ? `${merged.totalAcrossSources.toLocaleString()} results for "${state.query}"`
-      : `${merged.totalAcrossSources.toLocaleString()} matching records`;
+      : state.focusTheme
+        ? `${merged.totalAcrossSources.toLocaleString()} ${focusLabel || "featured"} technologies`
+        : `${merged.totalAcrossSources.toLocaleString()} matching records`;
     const redirectSummary = redirectSources.length
       ? ` · ${redirectSources.length.toLocaleString()} external search`
       : "";
@@ -1009,7 +1027,9 @@ async function renderResults() {
         if (hasActiveSearch()) {
           els.title.textContent = state.query
             ? `${combinedTotal.toLocaleString()} results for "${state.query}"`
-            : `${combinedTotal.toLocaleString()} matching records`;
+            : state.focusTheme
+              ? `${combinedTotal.toLocaleString()} ${focusLabel || "featured"} technologies`
+              : `${combinedTotal.toLocaleString()} matching records`;
         }
       })
       .catch(() => {});
@@ -1312,13 +1332,21 @@ els.form.addEventListener("submit", (event) => {
   runSearch(els.input.value);
 });
 
-document.querySelector("#popular-chips").addEventListener("click", (event) => {
-  const chip = event.target.closest("[data-keyword]");
-  if (chip) {
-    recordTrackedTopicSearch(chip.dataset.keyword);
-    trackSearchAnalytics(chip.dataset.keyword, "suggested_topic");
-    runSearch(chip.dataset.keyword);
-  }
+document.querySelector("#focus-theme-chips")?.addEventListener("click", (event) => {
+  const chip = event.target.closest("[data-focus]");
+  if (!chip) return;
+  const nextTheme = chip.dataset.focus || "";
+  analytics?.trackFilter(
+    "featured_theme",
+    nextTheme ? "select" : "clear",
+    nextTheme || "all-technologies",
+    nextTheme ? 1 : 0
+  );
+  state.focusTheme = nextTheme;
+  state.mergedPage = 1;
+  cancelScheduledFilterRender();
+  renderResults();
+  document.querySelector("#search-results").scrollIntoView({ behavior: "smooth" });
 });
 
 els.clear.addEventListener("click", () => {
@@ -1328,6 +1356,7 @@ els.clear.addEventListener("click", () => {
   state.sectors = [];
   state.databaseTypes = [];
   state.sources = [];
+  state.focusTheme = "";
   state.mergedPage = 1;
   els.input.value = "";
   syncFacetControls();
@@ -1341,6 +1370,8 @@ els.activeFilters?.addEventListener("click", (event) => {
   if (filterType === "query") {
     state.query = "";
     els.input.value = "";
+  } else if (filterType === "focusTheme") {
+    state.focusTheme = "";
   } else if (Array.isArray(state[filterType])) {
     const next = state[filterType].filter((value) => value !== filterValue);
     trackFilterAnalytics(filterType, state[filterType], next);
@@ -1586,8 +1617,6 @@ document.addEventListener("keydown", (event) => {
 // git history — re-add along with the #jpo-lookup section once approved.
 
 // ── Boot ─────────────────────────────────────────────────────────────────────
-
-loadPopularSearches();
 
 renderSourcesTable().then(() => {
   renderResults();

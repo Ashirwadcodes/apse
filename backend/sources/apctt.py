@@ -14,6 +14,7 @@ import httpx
 
 from backend.models.technology import Technology
 from backend.search.semantic import SemanticQueryContext, searchable_text, semantic_search
+from backend.search.focus_themes import FocusTheme, score_focus_record
 from backend.sources.base import BaseSource
 from backend.taxonomy.apctt_taxonomy import (
     APCTT_COUNTRY_TID_TO_NAME,
@@ -43,6 +44,7 @@ class APCTTSource(BaseSource):
     ttl_seconds = 3600
     transfer_type = "Technology transfer / cooperation"
     sector_filter_supported = True
+    focus_filter_supported = True
     facet_count_supported = True
     requires_facet_preparation = True
     multi_country = True
@@ -172,27 +174,42 @@ class APCTTSource(BaseSource):
         semantic_context = filters.get("_semantic_context")
         if not isinstance(semantic_context, SemanticQueryContext):
             semantic_context = SemanticQueryContext(query=normalized_query)
+        focus_theme = filters.get("_focus_theme")
+        if not isinstance(focus_theme, FocusTheme):
+            focus_theme = None
 
-        matched: list[tuple[dict, float]] = []
+        matched: list[tuple[dict, float, int]] = []
         semantic_evidence: list[tuple[dict, float]] = []
         for record in self._records:
             if selected_countries and not selected_countries.intersection(record["countries"]):
                 continue
             if not matches_sector_filter(record["classification"], selected_sectors):
                 continue
+            focus_score = 0
+            if focus_theme:
+                focus_match, focus_score = score_focus_record(
+                    record["search_record"], record["classification"], focus_theme
+                )
+                if not focus_match:
+                    continue
             if normalized_query:
                 is_match, score, semantic_score = semantic_search.score_record(
                     record["search_record"], semantic_context, self.id
                 )
                 if not is_match:
                     continue
-                matched.append((record, score))
+                matched.append((record, score, focus_score))
                 if semantic_score:
                     semantic_evidence.append((record["search_record"], semantic_score))
             else:
-                matched.append((record, 0.0))
+                matched.append((record, 0.0, focus_score))
 
-        if normalized_query and semantic_context.available:
+        if focus_theme:
+            matched.sort(
+                key=lambda item: (item[2], item[1], item[0]["title"].lower()),
+                reverse=True,
+            )
+        elif normalized_query and semantic_context.available:
             matched.sort(
                 key=lambda item: (item[1], item[0]["title"].lower()),
                 reverse=True,
@@ -201,7 +218,10 @@ class APCTTSource(BaseSource):
 
         total = len(matched)
         start = (page - 1) * self._PAGE_SIZE
-        items = [self._to_technology(record) for record, _ in matched[start:start + self._PAGE_SIZE]]
+        items = [
+            self._to_technology(record)
+            for record, _, _ in matched[start:start + self._PAGE_SIZE]
+        ]
         return items, total
 
     def facet_records(self):
