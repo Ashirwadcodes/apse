@@ -44,11 +44,11 @@
       href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&family=Roboto:wght@400;500;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css?v=24" />
+    <link rel="stylesheet" href="styles.css?v=25" />
     <link
       id="apctt-theme"
       rel="stylesheet"
-      href="apctt-theme.css?v=8"
+      href="apctt-theme.css?v=9"
     />
     <link
       id="energy-concept"
@@ -223,6 +223,7 @@
                 </button>
                 <button type="button" class="view-toggle-button" data-results-view="grid" aria-pressed="false" title="Grid view">
                   <span aria-hidden="true">▦</span><span class="visually-hidden">Grid view</span>
+                </button>
               </div>
             </div>
           </div>
@@ -402,6 +403,24 @@
       </footer>
     </main>
 
+    <section class="compare-tray" id="compare-tray" aria-label="Selected technologies for comparison" hidden>
+      <div class="gateway-container compare-tray-inner">
+        <div class="compare-tray-summary">
+          <span class="compare-tray-label">Compare technologies</span>
+          <strong id="compare-count">0 of 3 selected</strong>
+        </div>
+        <div class="compare-tray-items" id="compare-tray-items"></div>
+        <div class="compare-tray-actions">
+          <button class="text-button" type="button" data-compare-clear>Clear</button>
+          <button class="button button-primary" id="compare-open-button" type="button" data-compare-open disabled>
+            Compare selected
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <p class="visually-hidden" id="compare-status" aria-live="polite"></p>
+
     <!-- Source detail page overlay -->
     <div
       id="source-page"
@@ -416,9 +435,28 @@
       </div>
     </div>
 
+    <!-- Technology comparison overlay -->
+    <div
+      id="compare-page"
+      class="compare-page"
+      aria-modal="true"
+      aria-hidden="true"
+      aria-labelledby="compare-page-title"
+      role="dialog"
+    >
+      <div class="compare-page-inner">
+        <div class="compare-page-toolbar">
+          <button class="text-button" type="button" data-compare-close>← Back to search results</button>
+          <button class="compare-page-close" type="button" data-compare-close aria-label="Close comparison">×</button>
+        </div>
+        <div id="compare-page-content"><h1 class="visually-hidden" id="compare-page-title">Technology comparison</h1></div>
+      </div>
+    </div>
+
     <script src="merged-pagination.js?v=1" defer></script>
     <script src="security-utils.js?v=1" defer></script>
+    <script src="compare-utils.js?v=2" defer></script>
     <script src="analytics.js?v=2" defer></script>
-    <script src="app.js?v=33" defer></script>
+    <script src="app.js?v=35" defer></script>
   </body>
 </html>

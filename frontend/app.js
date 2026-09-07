@@ -7,6 +7,7 @@ const {
   normalizeDisplayText,
   safeExternalUrl: safeUrl,
 } = globalThis.AptgSecurity;
+const compare = globalThis.AptgCompare;
 
 // Runtime state — sources populated on init, technologies fetched on each search
 let sourcesCache = [];
@@ -14,6 +15,7 @@ let sectorOptionsCache = [];
 let activeResultsController = null;
 let activeFacetController = null;
 let filterRenderTimer = null;
+const visibleCompareItems = new Map();
 
 const GLOBAL_PAGE_SIZE = 20;
 
@@ -55,7 +57,14 @@ const state = {
   focusTheme: "",
   resultsView: "list",
   mergedPage: 1,
+  compareItems: [],
 };
+
+try {
+  state.compareItems = compare.readItems(window.localStorage);
+} catch {
+  state.compareItems = [];
+}
 
 const FILTER_STATE_KEYS = ["countries", "sectors", "databaseTypes", "sources"];
 
@@ -77,6 +86,13 @@ const els = {
   filterBackdrop: document.querySelector(".filter-backdrop"),
   mobileFilterCount: document.querySelector(".mobile-filter-count"),
   app: document.querySelector(".apse"),
+  compareTray: document.querySelector("#compare-tray"),
+  compareTrayItems: document.querySelector("#compare-tray-items"),
+  compareCount: document.querySelector("#compare-count"),
+  compareOpenButton: document.querySelector("#compare-open-button"),
+  compareStatus: document.querySelector("#compare-status"),
+  comparePage: document.querySelector("#compare-page"),
+  comparePageContent: document.querySelector("#compare-page-content"),
 };
 
 const analytics = globalThis.AptgAnalytics;
@@ -266,6 +282,29 @@ function jstPatentLinks(technology) {
 // Technology fields come from crawled external sources, not from us — never
 // trust them into innerHTML unescaped (a scraped title/summary containing
 // "<img onerror=...>" would otherwise execute in every visitor's browser).
+function compareItemForTechnology(technology, source, {
+  sectorText = "",
+  destinationUrl = "",
+  destinationLabel = "",
+  summary = "",
+} = {}) {
+  return compare.normalizeItem({
+    id: technology.id,
+    sourceId: source.id,
+    sourceName: source.name,
+    title: technology.title,
+    summary: summary || technology.summary,
+    country: technology.country || source.country,
+    sectors: sectorText || (technology.sector_labels || []).join(", ") || technology.sector,
+    organisation: technology.org_name,
+    recordDate: technology.reg_date,
+    lastIndexed: formatIndexedDate(source.last_indexed),
+    language: technology.language,
+    url: destinationUrl || technology.url,
+    linkLabel: destinationLabel || "View original source ↗",
+  });
+}
+
 function technologyCard(technology, source) {
   const sectorCodes = technology.sector_codes || [];
   const sectorLabels = technology.sector_labels || [];
@@ -305,6 +344,15 @@ function technologyCard(technology, source) {
   const cardCountry = technology.country || source.country;
   const flag = flagForCountry(cardCountry, source);
   const url = safeUrl(jstLinks?.destinationUrl || technology.url);
+  const compareItem = compareItemForTechnology(technology, source, {
+    sectorText: allSectors || sectorLabel || technology.sector,
+    destinationUrl: url,
+    destinationLabel: jstLinks?.destinationLabel || "View original source ↗",
+    summary: cardSummary,
+  });
+  const compareKey = compare.itemKey(compareItem);
+  const isCompared = state.compareItems.some((item) => compare.itemKey(item) === compareKey);
+  if (compareItem && compareKey) visibleCompareItems.set(compareKey, compareItem);
   const jstContactDetails = jstLinks ? `
     <div class="jst-contact-details">
       <div class="detail-row">
@@ -337,6 +385,9 @@ function technologyCard(technology, source) {
             <div class="card-detail-panel">${detailRows}${jstContactDetails}</div>
           </details>` : "<span></span>"}
         <div class="card-actions">
+          ${compareKey ? `<button class="button button-secondary compare-toggle${isCompared ? " is-selected" : ""}" type="button" data-compare-toggle="${escapeHtml(compareKey)}" aria-pressed="${String(isCompared)}">
+            <span aria-hidden="true">${isCompared ? "✓" : "+"}</span> ${isCompared ? "Added to compare" : "Add to compare"}
+          </button>` : ""}
           ${jstLinks ? `<a class="button button-secondary card-contact-link" data-analytics-outbound="licensing_inquiry" data-analytics-source="jst_japan" href="${escapeHtml(jstLinks.inquiryUrl)}">Contact JST about licensing</a>` : ""}
           ${url ? `<a class="button button-primary card-external-link" data-analytics-outbound="technology_record" data-analytics-source="${escapeHtml(source.id)}" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${jstLinks ? jstLinks.destinationLabel : "View original source ↗"}</a>` : ""}
         </div>
@@ -611,6 +662,7 @@ async function buildMergedPage(globalPage, activeIds, signal) {
 }
 
 function renderMergedGrid(items) {
+  visibleCompareItems.clear();
   if (!items.length) {
     const heading = state.query
       ? `No technologies available for "${escapeHtml(state.query)}"`
@@ -620,6 +672,197 @@ function renderMergedGrid(items) {
   return `<div class="technology-list merged-grid view-${state.resultsView}">
     ${items.map(({ tech, source }) => technologyCard(tech, source)).join("")}
   </div>`;
+}
+
+// ── Client-side technology comparison ───────────────────────────────────────
+
+let comparePageReturnFocus = null;
+
+function announceCompare(message) {
+  if (!els.compareStatus) return;
+  els.compareStatus.textContent = "";
+  requestAnimationFrame(() => { els.compareStatus.textContent = message; });
+}
+
+function saveCompareItems(items) {
+  try {
+    state.compareItems = compare.writeItems(window.localStorage, items);
+  } catch {
+    state.compareItems = compare.normalizeItems(items);
+  }
+}
+
+function updateCompareButtons() {
+  const selectedKeys = new Set(state.compareItems.map(compare.itemKey));
+  document.querySelectorAll("[data-compare-toggle]").forEach((button) => {
+    const selected = selectedKeys.has(button.dataset.compareToggle);
+    button.classList.toggle("is-selected", selected);
+    button.setAttribute("aria-pressed", String(selected));
+    button.innerHTML = `<span aria-hidden="true">${selected ? "✓" : "+"}</span> ${selected ? "Added to compare" : "Add to compare"}`;
+  });
+}
+
+function renderCompareTray() {
+  const count = state.compareItems.length;
+  els.compareTray.hidden = count === 0;
+  document.body.classList.toggle("has-compare-tray", count > 0);
+  els.compareCount.textContent = `${count} of ${compare.LIMIT} selected`;
+  els.compareOpenButton.disabled = count < 2;
+  els.compareOpenButton.textContent = count < 2 ? "Select one more" : `Compare ${count} technologies`;
+  els.compareTrayItems.innerHTML = state.compareItems.map((item) => {
+    const key = compare.itemKey(item);
+    return `
+      <span class="compare-tray-item" title="${escapeHtml(item.title)}">
+        <span>${escapeHtml(item.title)}</span>
+        <button type="button" data-compare-remove="${escapeHtml(key)}" aria-label="Remove ${escapeHtml(item.title)} from comparison">×</button>
+      </span>`;
+  }).join("");
+  updateCompareButtons();
+}
+
+function missingCompareValue() {
+  return '<span class="compare-missing">Not provided by source</span>';
+}
+
+function compareTextCell(item, field) {
+  return item[field] ? escapeHtml(item[field]) : missingCompareValue();
+}
+
+function renderComparePage() {
+  const items = state.compareItems;
+  if (items.length < 2) {
+    els.comparePageContent.innerHTML = `
+      <div class="compare-page-empty">
+        <span class="section-kicker">Technology comparison</span>
+        <h1 id="compare-page-title">Choose at least two technologies</h1>
+        <p>Add another technology from the search results to compare the available metadata side by side.</p>
+        <button class="button button-primary" type="button" data-compare-close>Return to search results</button>
+      </div>`;
+    return;
+  }
+
+  const headers = items.map((item) => `
+    <th scope="col">
+      <span class="compare-source-name">${escapeHtml(item.sourceName)}</span>
+      <h2>${escapeHtml(item.title)}</h2>
+      <button class="text-button compare-column-remove" type="button" data-compare-remove="${escapeHtml(compare.itemKey(item))}">Remove</button>
+    </th>`).join("");
+
+  const textRow = (label, field, rowClass = "") => `
+    <tr${rowClass ? ` class="${rowClass}"` : ""}>
+      <th scope="row">${label}</th>
+      ${items.map((item) => `<td>${compareTextCell(item, field)}</td>`).join("")}
+    </tr>`;
+
+  const sourceLinks = items.map((item) => `<td>${item.url
+    ? `<a href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer" data-analytics-outbound="technology_record" data-analytics-source="${escapeHtml(item.sourceId)}">${escapeHtml(item.linkLabel || "View original source ↗")}</a>`
+    : missingCompareValue()}</td>`).join("");
+
+  els.comparePageContent.innerHTML = `
+    <header class="compare-page-heading">
+      <span class="section-kicker">Technology comparison</span>
+      <h1 id="compare-page-title">Compare selected technologies</h1>
+      <p>Compare the metadata available from each source. Missing information does not mean a feature is unavailable; it means the source did not provide that field.</p>
+    </header>
+    <p class="compare-scroll-hint">Swipe horizontally to view every selected technology.</p>
+    <div class="compare-table-wrap" tabindex="0" aria-label="Scrollable technology comparison table">
+      <table class="compare-table">
+        <caption class="visually-hidden">Comparison of ${items.length} selected technologies</caption>
+        <thead>
+          <tr>
+            <th scope="col"><span class="visually-hidden">Comparison field</span></th>
+            ${headers}
+          </tr>
+        </thead>
+        <tbody>
+          ${textRow("Summary", "summary", "compare-summary-row")}
+          ${textRow("Country", "country")}
+          ${textRow("Standardized sector", "sectors")}
+          ${textRow("Organisation", "organisation")}
+          ${textRow("Source record date", "recordDate")}
+          ${textRow("Last indexed by APTG", "lastIndexed")}
+          ${textRow("Source platform", "sourceName")}
+          <tr class="compare-link-row">
+            <th scope="row">Full record</th>
+            ${sourceLinks}
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="compare-authority-note">Original source platforms remain authoritative. Verify current details and availability before making decisions.</p>`;
+}
+
+function setComparePageOpen(isOpen) {
+  els.comparePage.classList.toggle("open", isOpen);
+  els.comparePage.setAttribute("aria-hidden", String(!isOpen));
+  document.body.classList.toggle("compare-dialog-open", isOpen);
+  const main = document.querySelector("main");
+  if (main) main.inert = isOpen;
+  els.compareTray.inert = isOpen;
+}
+
+function openComparePage() {
+  if (state.compareItems.length < 2) {
+    announceCompare("Select at least two technologies to compare.");
+    return;
+  }
+  comparePageReturnFocus = document.activeElement;
+  renderComparePage();
+  setComparePageOpen(true);
+  els.comparePage.querySelector("[data-compare-close]")?.focus();
+}
+
+function closeComparePage() {
+  setComparePageOpen(false);
+  if (comparePageReturnFocus instanceof HTMLElement && comparePageReturnFocus.isConnected) {
+    comparePageReturnFocus.focus();
+  }
+  comparePageReturnFocus = null;
+}
+
+function removeComparedItem(key) {
+  const removed = state.compareItems.find((item) => compare.itemKey(item) === key);
+  if (!removed) return;
+  saveCompareItems(state.compareItems.filter((item) => compare.itemKey(item) !== key));
+  renderCompareTray();
+  if (els.comparePage.classList.contains("open")) renderComparePage();
+  announceCompare(`${removed.title} removed from comparison.`);
+}
+
+async function translateComparedItem(key) {
+  const index = state.compareItems.findIndex((item) => compare.itemKey(item) === key);
+  const item = state.compareItems[index];
+  if (!item || item.language !== "Korean") return;
+  const fields = ["title", "summary", "sectors", "organisation"];
+  try {
+    const translated = await Promise.all(fields.map((field) => translateText(item[field])));
+    if (state.compareItems[index] !== item) return;
+    const nextItem = { ...item, language: "English" };
+    fields.forEach((field, fieldIndex) => { nextItem[field] = translated[fieldIndex] || item[field]; });
+    saveCompareItems(state.compareItems.map((candidate, candidateIndex) => candidateIndex === index ? nextItem : candidate));
+    renderCompareTray();
+    if (els.comparePage.classList.contains("open")) renderComparePage();
+  } catch {
+    // Keep the original source language when automatic translation is unavailable.
+  }
+}
+
+function toggleComparedItem(key) {
+  const visibleItem = visibleCompareItems.get(key);
+  const existingItem = state.compareItems.find((item) => compare.itemKey(item) === key);
+  const result = compare.toggleItem(state.compareItems, visibleItem || existingItem);
+  if (result.status === "limit") {
+    announceCompare(`You can compare up to ${compare.LIMIT} technologies. Remove one before adding another.`);
+    return;
+  }
+  if (result.status === "invalid") return;
+  saveCompareItems(result.items);
+  renderCompareTray();
+  const item = visibleItem || existingItem;
+  announceCompare(result.status === "added"
+    ? `${item.title} added to comparison. ${state.compareItems.length} of ${compare.LIMIT} selected.`
+    : `${item.title} removed from comparison.`);
+  if (result.status === "added") translateComparedItem(key);
 }
 
 // ── API fetch layer ───────────────────────────────────────────────────────────
@@ -1549,6 +1792,36 @@ window.addEventListener("popstate", (e) => {
 });
 
 document.addEventListener("click", (event) => {
+  const compareToggle = event.target.closest("[data-compare-toggle]");
+  if (compareToggle) {
+    toggleComparedItem(compareToggle.dataset.compareToggle);
+    return;
+  }
+
+  const compareRemove = event.target.closest("[data-compare-remove]");
+  if (compareRemove) {
+    removeComparedItem(compareRemove.dataset.compareRemove);
+    return;
+  }
+
+  if (event.target.closest("[data-compare-clear]")) {
+    saveCompareItems([]);
+    renderCompareTray();
+    if (els.comparePage.classList.contains("open")) renderComparePage();
+    announceCompare("Comparison cleared.");
+    return;
+  }
+
+  if (event.target.closest("[data-compare-open]")) {
+    openComparePage();
+    return;
+  }
+
+  if (event.target.closest("[data-compare-close]")) {
+    closeComparePage();
+    return;
+  }
+
   const pageButton = event.target.closest("[data-merged-page]");
   if (pageButton) {
     changeMergedPage(Number(pageButton.dataset.mergedPage));
@@ -1581,6 +1854,31 @@ document.addEventListener("click", (event) => {
 });
 
 document.addEventListener("keydown", (event) => {
+  if (els.comparePage.classList.contains("open")) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeComparePage();
+      return;
+    }
+    if (event.key === "Tab") {
+      const focusable = [...els.comparePage.querySelectorAll(
+        'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )].filter((element) => !element.hidden);
+      if (focusable.length) {
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
+    }
+    return;
+  }
+
   const jumpInput = event.target.closest(".pagination-jump-input");
   if (jumpInput && event.key === "Enter") {
     const page = Number(jumpInput.value);
@@ -1618,6 +1916,7 @@ document.addEventListener("keydown", (event) => {
 
 // ── Boot ─────────────────────────────────────────────────────────────────────
 
+renderCompareTray();
 renderSourcesTable().then(() => {
   renderResults();
   // Check if URL has a source hash on load

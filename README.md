@@ -24,6 +24,9 @@ arrangements may change following formal review.
 - Applies country, sector, database-type, and source filters in real time.
 - Provides four editorially curated featured technology themes as optional
   search shortcuts while keeping `All technologies` as the default scope.
+- Lets users select up to three records and compare normalized metadata side by
+  side. The comparison list is stored only in that browser; it does not create
+  a server-side user database.
 - Uses query-aware facet counts for locally indexed catalogues.
 - Links each result to its original source record.
 - Falls back safely when an optional live source or semantic-search service is
@@ -85,6 +88,7 @@ safe refresh procedure.
 frontend/
   index.html              Main search, sources, and About interface
   app.js                  Search, filters, facets, cards, and navigation
+  compare-utils.js        Validated browser-only comparison state
   styles.css              Responsive visual system
   privacy-notice.html     Privacy notice
   terms-of-use.html       Terms of use
@@ -156,7 +160,7 @@ requirements and run:
 ```sh
 python -m pip install -r requirements-dev.txt
 python -m pytest -q
-node --test tests/frontend-security.test.js tests/frontend-analytics.test.js tests/frontend-seo.test.js tests/merged-pagination.test.js
+node --test tests/frontend-security.test.js tests/frontend-analytics.test.js tests/frontend-seo.test.js tests/frontend-compare.test.js tests/merged-pagination.test.js
 python scripts/validate_crawled_data.py
 python -m pip_audit -r backend/requirements.txt
 ```
@@ -236,6 +240,8 @@ is the source of truth.
   referrer, and permissions policies.
 - The frontend defines a restrictive CSP in its HTML documents.
 - Technology and source values are escaped before being rendered into cards.
+- Comparison selections retain only sanitized card metadata in the user's
+  browser local storage and can be cleared from the comparison tray.
 - The public API is rate-limited and CORS is restricted to the deployed APTG,
   APCTT, and local development origins.
 - External links open with `noopener noreferrer`.

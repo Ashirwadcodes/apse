@@ -349,6 +349,15 @@
   font-family: var(--font-body);
 }
 
+/* Comparison UI lives outside .apse so it can overlay the full page. Keep its
+   typography aligned with the active APCTT theme instead of the base preview. */
+.compare-tray,
+.compare-page {
+  --font-body: "Roboto", Arial, Helvetica, sans-serif;
+  --font-display: "Roboto", Arial, Helvetica, sans-serif;
+  font-family: var(--font-body);
+}
+
 .group-source h3 {
   color: #123f62;
   font-size: 17px;
